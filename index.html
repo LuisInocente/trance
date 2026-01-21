@@ -911,12 +911,11 @@
     let recordingBarCount = 0; // How many bars have been recorded (need 4)
     let playingSlot = -1; // Which slot is playing (-1 = none)
     let pendingPlaySlot = -1; // Which slot is queued to play
-    let pendingPlayBarsRemaining = 0; // How many bars until queued loop starts
+    let loopBarsPlayed = 0; // How many bars the current loop has played
     let loopRecorder = null; // MediaRecorder for loop recording
     let loopChunks = [];
     let loopRecordStartStep = -1;
     let loopSource = null; // Current playing loop source
-    let currentBarInCycle = 1; // Track which bar we're in (1-4) of the 4-bar cycle
 
     function updateLoopUI(){
       loopBtns.forEach((btn, i) => {
@@ -933,11 +932,12 @@
           loopStatuses[i].classList.add("recording");
         } else if(i === pendingPlaySlot){
           btn.classList.add("pending");
-          loopStatuses[i].textContent = pendingPlayBarsRemaining > 0 ? `${pendingPlayBarsRemaining}...` : "Queued";
+          const barsLeft = 4 - loopBarsPlayed;
+          loopStatuses[i].textContent = barsLeft > 0 ? `In ${barsLeft}...` : "Next";
           loopStatuses[i].classList.add("pending");
         } else if(i === playingSlot){
           btn.classList.add("playing");
-          loopStatuses[i].textContent = "Playing";
+          loopStatuses[i].textContent = `Bar ${loopBarsPlayed}/4`;
           loopStatuses[i].classList.add("playing");
         } else if(loopSlots[i]){
           btn.classList.add("ready");
@@ -1002,7 +1002,7 @@
               ctx.decodeAudioData(arr, resolve, reject)
             );
             // Apply fade to remove clicks
-            loopSlots[slotToSave] = applyLoopFade(buf, 8);
+            loopSlots[slotToSave] = applyLoopFade(buf, 25);
             setStatus(`Loop ${slotToSave + 1} recorded! ✅`);
           } catch(err) {
             console.error("Loop decode error:", err);
@@ -1042,34 +1042,47 @@
     function queueLoop(slot){
       if(!ctx || !loopSlots[slot]) return;
       
-      // If sequencer is not running, play immediately
+      // If sequencer is not running, just queue it and it will play when sequencer starts at bar boundary
       if(!isRunning){
+        // When stopped, start immediately for preview
         playLoopNow(slot);
         return;
       }
       
-      // If same loop is already playing or pending, stop/cancel it
-      if(playingSlot === slot){
-        stopLoopPlayback();
+      // If same loop is already playing or pending, cancel
+      if(playingSlot === slot || pendingPlaySlot === slot){
+        if(pendingPlaySlot === slot){
+          pendingPlaySlot = -1;
+          updateLoopUI();
+          setStatus("Loop cancelled");
+        }
         return;
       }
       
-      // Queue the loop to start after 4 bars
+      // Queue the loop - it will start when current loop finishes 4 bars
       pendingPlaySlot = slot;
-      pendingPlayBarsRemaining = 4; // Always wait full 4 bars
       updateLoopUI();
-      setStatus(`Loop ${slot + 1} queued - plays in 4 bars`);
+      
+      if(playingSlot >= 0){
+        const barsLeft = 4 - loopBarsPlayed;
+        setStatus(`Loop ${slot + 1} queued - plays in ${barsLeft} bar${barsLeft !== 1 ? 's' : ''}`);
+      } else {
+        setStatus(`Loop ${slot + 1} queued - plays at bar 1`);
+      }
     }
 
     function playLoopNow(slot){
       if(!ctx || !loopSlots[slot]) return;
       
-      // Stop any currently playing loop
-      stopLoopPlayback();
+      // Stop any currently playing loop (but don't clear pending)
+      if(loopSource){
+        try { loopSource.stop(0); } catch(_){}
+        loopSource = null;
+      }
       
       pendingPlaySlot = -1;
-      pendingPlayBarsRemaining = 0;
       playingSlot = slot;
+      loopBarsPlayed = 1; // Starting bar 1
       
       // Create source and play
       loopSource = ctx.createBufferSource();
@@ -1080,19 +1093,14 @@
       loopSource.onended = () => {
         if(playingSlot === slot){
           playingSlot = -1;
+          loopBarsPlayed = 0;
           updateLoopUI();
         }
       };
       
       loopSource.start(0);
       updateLoopUI();
-      setStatus(`Playing Loop ${slot + 1}`);
-    }
-
-    function startQueuedLoop(){
-      if(pendingPlaySlot >= 0 && loopSlots[pendingPlaySlot]){
-        playLoopNow(pendingPlaySlot);
-      }
+      setStatus(`Playing Loop ${slot + 1} (Bar 1/4)`);
     }
 
     function playLoop(slot){
@@ -1101,7 +1109,7 @@
 
     function stopLoopPlayback(){
       pendingPlaySlot = -1;
-      pendingPlayBarsRemaining = 0;
+      loopBarsPlayed = 0;
       if(loopSource){
         try { loopSource.stop(0); } catch(_){}
         loopSource = null;
@@ -1126,19 +1134,26 @@
       btn.addEventListener("click", async () => {
         await resumeAudio();
         
-        if(playingSlot === i || pendingPlaySlot === i){
-          // If this loop is playing or pending, stop it
+        if(playingSlot === i){
+          // If this loop is playing, stop it
           stopLoopPlayback();
+          setStatus(`Loop ${i + 1} stopped`);
+        } else if(pendingPlaySlot === i){
+          // If this loop is pending, cancel it
+          pendingPlaySlot = -1;
+          updateLoopUI();
+          setStatus(`Loop ${i + 1} cancelled`);
         } else if(loopSlots[i]){
-          // If this slot has a loop, queue it to play
+          // If this slot has a recorded loop, queue it to play
           playLoop(i);
         } else if(!isRunning){
-          // If not playing, arm for recording (recording only works while playing)
+          // If not playing, arm for recording
           armLoopSlot(i);
-          setStatus(`Loop ${i + 1} armed. Press Play to start recording at Bar 1.`);
+          setStatus(`Loop ${i + 1} armed. Press Play to start recording.`);
         } else {
           // If playing and slot is empty, arm it
           armLoopSlot(i);
+          setStatus(`Loop ${i + 1} armed. Recording starts at next Bar 1.`);
         }
       });
     });
@@ -2240,18 +2255,26 @@
     }
 
     function scheduleStep(stepIndex, time){
-      // At step 0 (start of each bar in the drum grid)
+      // At step 0 (start of each bar in the drum grid - 16 steps = 1 bar)
       if(stepIndex === 0){
-        // Handle queued loop countdown
-        if(pendingPlaySlot >= 0 && pendingPlayBarsRemaining > 0){
-          pendingPlayBarsRemaining--;
-          if(pendingPlayBarsRemaining <= 0){
-            // Time to start the queued loop
-            startQueuedLoop();
-          } else {
-            // Update UI with remaining bars
-            updateLoopUI();
+        // If a loop is playing, increment bar counter
+        if(playingSlot >= 0){
+          loopBarsPlayed++;
+          
+          // After 4 bars, check if we should switch to queued loop
+          if(loopBarsPlayed > 4){
+            if(pendingPlaySlot >= 0){
+              // Switch to the pending loop
+              playLoopNow(pendingPlaySlot);
+            } else {
+              // Reset counter, loop continues
+              loopBarsPlayed = 1;
+            }
           }
+          updateLoopUI();
+        } else if(pendingPlaySlot >= 0){
+          // No loop playing but one is queued - start it now
+          playLoopNow(pendingPlaySlot);
         }
         
         // Handle recording bar count
@@ -2265,15 +2288,9 @@
           }
         }
         
-        // Check if we should start loop recording (only when armed)
+        // Check if we should start loop recording
         if(armedSlot >= 0){
           startLoopRecording(armedSlot);
-        }
-        
-        // Increment bar counter
-        currentBarInCycle++;
-        if(currentBarInCycle > 4){
-          currentBarInCycle = 1;
         }
       }
 
@@ -2347,7 +2364,7 @@
       drumStep = 0;
       bassStep = 0;
       leadStep = 0;
-      currentBarInCycle = 1; // Reset 4-bar cycle counter
+      loopBarsPlayed = playingSlot >= 0 ? 1 : 0; // Reset bar counter if loop playing
 
       startTime = ctx.currentTime + 0.06;
       nextTime = startTime;
@@ -2376,8 +2393,7 @@
       if(recordingSlot >= 0) stopLoopRecording();
       armedSlot = -1;
       pendingPlaySlot = -1;
-      pendingPlayBarsRemaining = 0;
-      currentBarInCycle = 1; // Reset 4-bar cycle counter
+      loopBarsPlayed = 0;
       updateLoopUI();
 
       hardStopAllSources();
