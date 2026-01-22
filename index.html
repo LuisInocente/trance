@@ -911,10 +911,9 @@
     let recordingBarCount = 0; // How many bars have been recorded (need 4)
     let playingSlot = -1; // Which slot is playing (-1 = none)
     let pendingPlaySlot = -1; // Which slot is queued to play
-    let loopBarsPlayed = 0; // How many bars the current loop has played
+    let loopBarsPlayed = 0; // How many bars the current loop has played (0-4)
     let loopRecorder = null; // MediaRecorder for loop recording
     let loopChunks = [];
-    let loopRecordStartStep = -1;
     let loopSource = null; // Current playing loop source
 
     function updateLoopUI(){
@@ -932,12 +931,12 @@
           loopStatuses[i].classList.add("recording");
         } else if(i === pendingPlaySlot){
           btn.classList.add("pending");
-          const barsLeft = 4 - loopBarsPlayed;
-          loopStatuses[i].textContent = barsLeft > 0 ? `In ${barsLeft}...` : "Next";
+          const barsLeft = 5 - loopBarsPlayed; // loopBarsPlayed is 1-4
+          loopStatuses[i].textContent = barsLeft > 0 ? `In ${barsLeft}` : "Next";
           loopStatuses[i].classList.add("pending");
         } else if(i === playingSlot){
           btn.classList.add("playing");
-          loopStatuses[i].textContent = `Bar ${loopBarsPlayed}/4`;
+          loopStatuses[i].textContent = `${loopBarsPlayed}/4`;
           loopStatuses[i].classList.add("playing");
         } else if(loopSlots[i]){
           btn.classList.add("ready");
@@ -961,8 +960,8 @@
       updateLoopUI();
     }
 
-    // Apply fade in/out to remove clicks
-    function applyLoopFade(buf, fadeMs=10){
+    // Apply fade in/out to remove clicks - use exponential curve for smoother sound
+    function applyLoopFade(buf, fadeMs=40){
       if(!buf || !ctx) return buf;
       const sr = buf.sampleRate;
       const fadeSamples = Math.max(1, Math.floor(sr * (fadeMs / 1000)));
@@ -971,9 +970,11 @@
         const len = data.length;
         const n = Math.min(fadeSamples, Math.floor(len / 2));
         for(let i = 0; i < n; i++){
-          const gain = i / n;
-          data[i] *= gain; // fade in
-          data[len - 1 - i] *= gain; // fade out
+          // Use exponential curve for smoother fade
+          const t = i / n;
+          const gain = t * t; // Exponential fade in
+          data[i] *= gain;
+          data[len - 1 - i] *= gain; // Exponential fade out
         }
       }
       return buf;
@@ -998,11 +999,28 @@
           try {
             const blob = new Blob(loopChunks, { type: loopRecorder.mimeType || "audio/webm" });
             const arr = await blob.arrayBuffer();
-            const buf = await new Promise((resolve, reject) => 
+            let buf = await new Promise((resolve, reject) => 
               ctx.decodeAudioData(arr, resolve, reject)
             );
+            
+            // Calculate exact 4-bar duration based on tempo
+            const bpm = tempo();
+            const beatsPerBar = 4;
+            const bars = 4;
+            const exactDuration = (60 / bpm) * beatsPerBar * bars;
+            const exactSamples = Math.floor(exactDuration * buf.sampleRate);
+            
+            // Trim to exact length if longer
+            if(buf.length > exactSamples){
+              const trimmed = ctx.createBuffer(buf.numberOfChannels, exactSamples, buf.sampleRate);
+              for(let c = 0; c < buf.numberOfChannels; c++){
+                trimmed.copyToChannel(buf.getChannelData(c).slice(0, exactSamples), c);
+              }
+              buf = trimmed;
+            }
+            
             // Apply fade to remove clicks
-            loopSlots[slotToSave] = applyLoopFade(buf, 25);
+            loopSlots[slotToSave] = applyLoopFade(buf, 50);
             setStatus(`Loop ${slotToSave + 1} recorded! ✅`);
           } catch(err) {
             console.error("Loop decode error:", err);
@@ -1042,65 +1060,55 @@
     function queueLoop(slot){
       if(!ctx || !loopSlots[slot]) return;
       
-      // If sequencer is not running, just queue it and it will play when sequencer starts at bar boundary
-      if(!isRunning){
-        // When stopped, start immediately for preview
-        playLoopNow(slot);
+      // If same loop is already pending, cancel it
+      if(pendingPlaySlot === slot){
+        pendingPlaySlot = -1;
+        updateLoopUI();
+        setStatus(`Loop ${slot + 1} cancelled`);
         return;
       }
       
-      // If same loop is already playing or pending, cancel
-      if(playingSlot === slot || pendingPlaySlot === slot){
-        if(pendingPlaySlot === slot){
-          pendingPlaySlot = -1;
-          updateLoopUI();
-          setStatus("Loop cancelled");
-        }
+      // If a loop is currently playing, queue the new one to play after 4 bars
+      if(playingSlot >= 0){
+        pendingPlaySlot = slot;
+        updateLoopUI();
+        const barsLeft = 5 - loopBarsPlayed; // loopBarsPlayed is 1-4, so 5-x gives bars remaining
+        setStatus(`Loop ${slot + 1} queued - plays in ${barsLeft} bar${barsLeft !== 1 ? 's' : ''}`);
         return;
       }
       
-      // Queue the loop - it will start when current loop finishes 4 bars
+      // No loop playing - queue it to start at next bar 1 (step 0)
       pendingPlaySlot = slot;
       updateLoopUI();
       
-      if(playingSlot >= 0){
-        const barsLeft = 4 - loopBarsPlayed;
-        setStatus(`Loop ${slot + 1} queued - plays in ${barsLeft} bar${barsLeft !== 1 ? 's' : ''}`);
+      if(!isRunning){
+        setStatus(`Loop ${slot + 1} queued - press Play to start`);
       } else {
-        setStatus(`Loop ${slot + 1} queued - plays at bar 1`);
+        setStatus(`Loop ${slot + 1} queued - starts at bar 1`);
       }
     }
 
-    function playLoopNow(slot){
+    // Actually start playing a loop audio (called from scheduleStep at the right time)
+    function triggerLoopAudio(slot, time){
       if(!ctx || !loopSlots[slot]) return;
       
-      // Stop any currently playing loop (but don't clear pending)
+      // Stop any currently playing loop audio
       if(loopSource){
         try { loopSource.stop(0); } catch(_){}
         loopSource = null;
       }
       
-      pendingPlaySlot = -1;
-      playingSlot = slot;
-      loopBarsPlayed = 1; // Starting bar 1
-      
-      // Create source and play
+      // Create source and play - NO LOOPING, we'll retrigger manually
       loopSource = ctx.createBufferSource();
       loopSource.buffer = loopSlots[slot];
-      loopSource.loop = true;
+      loopSource.loop = false; // Don't loop - we control timing via sequencer
       loopSource.connect(master);
       
       loopSource.onended = () => {
-        if(playingSlot === slot){
-          playingSlot = -1;
-          loopBarsPlayed = 0;
-          updateLoopUI();
-        }
+        // Audio ended naturally - don't do anything, sequencer handles timing
       };
       
-      loopSource.start(0);
-      updateLoopUI();
-      setStatus(`Playing Loop ${slot + 1} (Bar 1/4)`);
+      try { loopSource.start(time); } catch(_){}
     }
 
     function playLoop(slot){
@@ -1109,12 +1117,12 @@
 
     function stopLoopPlayback(){
       pendingPlaySlot = -1;
+      playingSlot = -1;
       loopBarsPlayed = 0;
       if(loopSource){
         try { loopSource.stop(0); } catch(_){}
         loopSource = null;
       }
-      playingSlot = -1;
       updateLoopUI();
     }
 
@@ -1135,7 +1143,7 @@
         await resumeAudio();
         
         if(playingSlot === i){
-          // If this loop is playing, stop it
+          // If this loop is playing, stop all loop playback
           stopLoopPlayback();
           setStatus(`Loop ${i + 1} stopped`);
         } else if(pendingPlaySlot === i){
@@ -1145,15 +1153,15 @@
           setStatus(`Loop ${i + 1} cancelled`);
         } else if(loopSlots[i]){
           // If this slot has a recorded loop, queue it to play
-          playLoop(i);
+          queueLoop(i);
         } else if(!isRunning){
-          // If not playing, arm for recording
+          // If sequencer not playing, arm for recording
           armLoopSlot(i);
           setStatus(`Loop ${i + 1} armed. Press Play to start recording.`);
         } else {
-          // If playing and slot is empty, arm it
+          // If sequencer playing and slot is empty, arm it for recording
           armLoopSlot(i);
-          setStatus(`Loop ${i + 1} armed. Recording starts at next Bar 1.`);
+          setStatus(`Loop ${i + 1} armed. Recording starts at next bar 1.`);
         }
       });
     });
@@ -2255,43 +2263,52 @@
     }
 
     function scheduleStep(stepIndex, time){
-      // At step 0 (start of each bar in the drum grid - 16 steps = 1 bar)
+      // The 16-step grid represents 4 bars (4 steps per bar)
+      // Bar boundaries: step 0=Bar1, step 4=Bar2, step 8=Bar3, step 12=Bar4
+      const currentBar = Math.floor(stepIndex / 4) + 1; // 1, 2, 3, or 4
+      const isBarStart = (stepIndex % 4 === 0);
+      
+      // Update the bar display for playing loop
+      if(isBarStart && playingSlot >= 0){
+        loopBarsPlayed = currentBar;
+        updateLoopUI();
+      }
+      
+      // At step 0 (start of 4-bar cycle) - this is where loops switch
       if(stepIndex === 0){
-        // If a loop is playing, increment bar counter
-        if(playingSlot >= 0){
-          loopBarsPlayed++;
-          
-          // After 4 bars, check if we should switch to queued loop
-          if(loopBarsPlayed > 4){
-            if(pendingPlaySlot >= 0){
-              // Switch to the pending loop
-              playLoopNow(pendingPlaySlot);
-            } else {
-              // Reset counter, loop continues
-              loopBarsPlayed = 1;
-            }
+        // If there's a pending loop, switch to it now (after previous 4-bar cycle completed)
+        if(pendingPlaySlot >= 0){
+          // Stop old loop audio if any
+          if(loopSource){
+            try { loopSource.stop(0); } catch(_){}
+            loopSource = null;
           }
+          playingSlot = pendingPlaySlot;
+          pendingPlaySlot = -1;
+          loopBarsPlayed = 1;
+          triggerLoopAudio(playingSlot, time);
+          setStatus(`Playing Loop ${playingSlot + 1}`);
           updateLoopUI();
-        } else if(pendingPlaySlot >= 0){
-          // No loop playing but one is queued - start it now
-          playLoopNow(pendingPlaySlot);
+        } else if(playingSlot >= 0){
+          // Same loop continues - retrigger the audio for seamless playback
+          loopBarsPlayed = 1;
+          triggerLoopAudio(playingSlot, time);
         }
         
-        // Handle recording bar count
-        if(recordingSlot >= 0 && recordingBarCount > 0){
-          if(recordingBarCount >= 4){
-            // Finished recording 4 bars
-            stopLoopRecording();
-          } else {
-            // Increment to next bar
-            incrementBarCount();
-          }
+        // Handle recording - stop after 4 bars
+        if(recordingSlot >= 0 && recordingBarCount >= 4){
+          stopLoopRecording();
         }
         
-        // Check if we should start loop recording
-        if(armedSlot >= 0){
+        // Start recording if armed
+        if(armedSlot >= 0 && recordingSlot < 0){
           startLoopRecording(armedSlot);
         }
+      }
+      
+      // Increment recording bar count at bar boundaries (steps 4, 8, 12)
+      if(isBarStart && stepIndex > 0 && recordingSlot >= 0 && recordingBarCount > 0 && recordingBarCount < 4){
+        incrementBarCount();
       }
 
       for(const tr of tracks){
@@ -2364,7 +2381,7 @@
       drumStep = 0;
       bassStep = 0;
       leadStep = 0;
-      loopBarsPlayed = playingSlot >= 0 ? 1 : 0; // Reset bar counter if loop playing
+      loopBarsPlayed = 0; // Reset - loop will start fresh at step 0
 
       startTime = ctx.currentTime + 0.06;
       nextTime = startTime;
@@ -2391,8 +2408,16 @@
 
       // Stop any ongoing loop recording
       if(recordingSlot >= 0) stopLoopRecording();
+      
+      // Stop loop audio
+      if(loopSource){
+        try { loopSource.stop(0); } catch(_){}
+        loopSource = null;
+      }
+      
       armedSlot = -1;
       pendingPlaySlot = -1;
+      playingSlot = -1;
       loopBarsPlayed = 0;
       updateLoopUI();
 
