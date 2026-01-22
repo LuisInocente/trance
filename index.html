@@ -1143,17 +1143,19 @@
         loopSource = null;
       }
       
-      // Create source and play - NO LOOPING, we'll retrigger manually
+      // Create source and play with loop enabled
       loopSource = ctx.createBufferSource();
       loopSource.buffer = loopSlots[slot];
-      loopSource.loop = false; // Don't loop - we control timing via sequencer
+      loopSource.loop = true; // Enable looping for continuous playback
       loopSource.connect(master);
       
       loopSource.onended = () => {
-        // Audio ended naturally - don't do anything, sequencer handles timing
+        // Audio was stopped manually
       };
       
-      try { loopSource.start(time); } catch(_){}
+      // Start at scheduled time, or immediately if time is in the past
+      const startTime = (time && time > ctx.currentTime) ? time : ctx.currentTime;
+      try { loopSource.start(startTime); } catch(e){ console.error("Loop start error:", e); }
     }
 
     function playLoop(slot){
@@ -2335,27 +2337,18 @@
         
         // ---- LOOP PLAYBACK LOGIC ----
         if(playingSlot >= 0){
-          // Loop is playing
-          if(loopBarsPlayed >= 4){
-            // Finished 4 bars
-            if(pendingPlaySlot >= 0){
-              // Switch to pending loop
-              if(loopSource){
-                try { loopSource.stop(0); } catch(_){}
-                loopSource = null;
-              }
-              playingSlot = pendingPlaySlot;
-              pendingPlaySlot = -1;
-              loopBarsPlayed = 1;
-              triggerLoopAudio(playingSlot, time);
-              setStatus(`Playing Loop ${playingSlot + 1}`);
-            } else {
-              // Restart same loop
-              loopBarsPlayed = 1;
-              triggerLoopAudio(playingSlot, time);
-            }
+          // Loop is playing - check if we should switch at the end of 4 bars
+          if(loopBarsPlayed >= 4 && pendingPlaySlot >= 0){
+            // Switch to pending loop
+            playingSlot = pendingPlaySlot;
+            pendingPlaySlot = -1;
+            loopBarsPlayed = 1;
+            triggerLoopAudio(playingSlot, time);
+            setStatus(`Playing Loop ${playingSlot + 1}`);
           } else {
+            // Increment bar counter (wrap from 4 to 1)
             loopBarsPlayed++;
+            if(loopBarsPlayed > 4) loopBarsPlayed = 1;
           }
           updateLoopUI();
         } else if(pendingPlaySlot >= 0){
