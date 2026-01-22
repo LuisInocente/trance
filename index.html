@@ -960,6 +960,7 @@
     let loopRecorder = null; // MediaRecorder for loop recording
     let loopChunks = [];
     let loopSource = null; // Current playing loop source
+    let loopGain = null; // Gain node for loop crossfade
     let loopBarTimer = null; // Timer for tracking bars when playing independently
 
     function updateLoopUI(){
@@ -1042,15 +1043,12 @@
         
         loopRecorder.onstop = async () => {
           const slotToSave = recordingSlot;
-          console.log("Loop recording stopped, saving to slot", slotToSave);
           try {
             const blob = new Blob(loopChunks, { type: loopRecorder.mimeType || "audio/webm" });
-            console.log("Blob size:", blob.size);
             const arr = await blob.arrayBuffer();
             let buf = await new Promise((resolve, reject) => 
               ctx.decodeAudioData(arr, resolve, reject)
             );
-            console.log("Decoded buffer:", buf.duration, "seconds,", buf.numberOfChannels, "channels");
             
             // Calculate exact 4-bar duration based on tempo
             const bpm = tempo();
@@ -1070,7 +1068,6 @@
             
             // Apply fade to remove clicks
             loopSlots[slotToSave] = applyLoopFade(buf, 50);
-            console.log("Loop saved to slot", slotToSave, "buffer:", !!loopSlots[slotToSave]);
             setStatus(`Loop ${slotToSave + 1} recorded! ✅`);
           } catch(err) {
             console.error("Loop decode error:", err);
@@ -1111,11 +1108,7 @@
       // Ensure audio context is set up
       ensureAudio();
       
-      console.log("queueLoop called", { slot, ctx: !!ctx, loopSlots: loopSlots.map(s => !!s), playingSlot, master: !!master });
-      if(!ctx || !loopSlots[slot]) {
-        console.log("queueLoop early return - no ctx or no loop in slot");
-        return;
-      }
+      if(!ctx || !loopSlots[slot]) return;
       
       // If same loop is already playing, stop it
       if(playingSlot === slot){
@@ -1142,7 +1135,6 @@
       }
       
       // No loop playing - play immediately
-      console.log("Starting loop playback immediately");
       playingSlot = slot;
       loopBarsPlayed = 1;
       triggerLoopAudio(slot, ctx.currentTime);
@@ -1183,43 +1175,41 @@
       }
     }
 
-    // Actually start playing a loop audio (called from scheduleStep at the right time)
+    // Actually start playing a loop audio
     function triggerLoopAudio(slot, time){
-      console.log("triggerLoopAudio called", { slot, time, ctx: !!ctx, master: !!master, buffer: !!loopSlots[slot] });
-      if(!ctx || !master || !loopSlots[slot]) {
-        console.log("triggerLoopAudio early return", { ctx: !!ctx, master: !!master, buffer: !!loopSlots[slot] });
-        return;
-      }
+      if(!ctx || !master || !loopSlots[slot]) return;
       
-      // Stop any currently playing loop audio
-      if(loopSource){
-        try { loopSource.stop(0); } catch(_){}
+      const fadeTime = 0.03; // 30ms crossfade
+      const now = ctx.currentTime;
+      
+      // Fade out and stop old loop
+      if(loopSource && loopGain){
+        loopGain.gain.setValueAtTime(loopGain.gain.value, now);
+        loopGain.gain.linearRampToValueAtTime(0, now + fadeTime);
+        const oldSource = loopSource;
+        setTimeout(() => {
+          try { oldSource.stop(0); } catch(_){}
+        }, fadeTime * 1000 + 10);
         loopSource = null;
       }
+      
+      // Create gain node for new loop
+      loopGain = ctx.createGain();
+      loopGain.gain.setValueAtTime(0, now);
+      loopGain.gain.linearRampToValueAtTime(1, now + fadeTime);
+      loopGain.connect(master);
       
       // Create source and play with loop enabled
       loopSource = ctx.createBufferSource();
       loopSource.buffer = loopSlots[slot];
-      loopSource.loop = true; // Enable looping for continuous playback
-      loopSource.connect(master);
+      loopSource.loop = true;
+      loopSource.connect(loopGain);
       
-      loopSource.onended = () => {
-        console.log("Loop source ended");
-      };
-      
-      // Start at scheduled time, or immediately if time is in the past
-      const startTime = (time && time > ctx.currentTime) ? time : ctx.currentTime;
-      console.log("Starting loop source at", startTime);
-      try { 
-        loopSource.start(startTime); 
-        console.log("Loop source started successfully");
-      } catch(e){ 
-        console.error("Loop start error:", e); 
-      }
+      // Start immediately
+      try { loopSource.start(now); } catch(e){}
       
       // Start bar tracking timer if sequencer is not running
       if(!isRunning){
-        console.log("Starting loop bar timer (sequencer not running)");
         startLoopBarTimer();
       }
     }
@@ -1234,9 +1224,21 @@
       loopBarsPlayed = 0;
       stopLoopBarTimer();
       if(loopSource){
-        try { loopSource.stop(0); } catch(_){}
+        if(loopGain && ctx){
+          // Fade out before stopping
+          const now = ctx.currentTime;
+          loopGain.gain.setValueAtTime(loopGain.gain.value, now);
+          loopGain.gain.linearRampToValueAtTime(0, now + 0.03);
+          const oldSource = loopSource;
+          setTimeout(() => {
+            try { oldSource.stop(0); } catch(_){}
+          }, 40);
+        } else {
+          try { loopSource.stop(0); } catch(_){}
+        }
         loopSource = null;
       }
+      loopGain = null;
       updateLoopUI();
     }
 
@@ -1254,13 +1256,9 @@
     // Loop button click handlers
     loopBtns.forEach((btn, i) => {
       btn.addEventListener("click", async () => {
-        console.log("Loop button clicked", i, "loopSlots[i]:", !!loopSlots[i]);
-        
         // Ensure audio context is created and resumed
         ensureAudio();
         await resumeAudio();
-        
-        console.log("After resumeAudio - ctx:", !!ctx, "master:", !!master);
         
         if(loopSlots[i]){
           // If this slot has a recorded loop, play/stop/queue it
@@ -2539,6 +2537,7 @@
         try { loopSource.stop(0); } catch(_){}
         loopSource = null;
       }
+      loopGain = null;
       
       armedSlot = -1;
       pendingPlaySlot = -1;
