@@ -3,50 +3,56 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <title>Drum Machine + Bassline + Trance Lead + 4 Loop Recorder (A natural minor)</title>
+  <title>Music Loop Maker</title>
 
   <link rel="icon" href="data:,">
 
   <style>
     :root{
-      --bg:#ffffff;
-      --card:#ffffff;
-      --border:#d9d9d9;
-      --text:#111;
-      --muted:#666;
+      --bg:#0f0f0f;
+      --card:#1a1a1a;
+      --border:#333;
+      --text:#e5e5e5;
+      --muted:#888;
 
-      --gridBorder:#cfcfcf;
-      --cellA:#fff;
-      --cellB:#f3f3f3;
-      --playhead: rgba(0,0,0,.14);
+      --gridBorder:#2a2a2a;
+      --cellA:#1a1a1a;
+      --cellB:#222;
+      --playhead: rgba(255,255,255,.2);
 
-      --t1:hsl(10 85% 72%);
-      --t2:hsl(90 70% 72%);
-      --t3:hsl(200 80% 72%);
-      --t4:hsl(280 75% 76%);
-      --t5:hsl(45 90% 72%);
-      --t6:hsl(160 70% 72%);
-      --t7:hsl(210 85% 78%);
-      --t8:hsl(330 75% 78%);
+      --t1:hsl(10 70% 45%);
+      --t2:hsl(90 55% 40%);
+      --t3:hsl(200 65% 45%);
+      --t4:hsl(280 60% 50%);
+      --t5:hsl(45 75% 45%);
+      --t6:hsl(160 55% 40%);
+      --t7:hsl(210 70% 50%);
+      --t8:hsl(330 60% 50%);
 
-      --noteGrey:#e6e6e6;
-      --noteNat:#ffffff;
+      --noteGrey:#333;
+      --noteNat:#444;
 
-      --bassOn:#7f1d1d;
-      --leadOn:#6d28d9;
+      --bassOn:#991b1b;
+      --leadOn:#7c3aed;
 
       --headerH:70px;
       --footerH:40px;
-      --gap:12px;
+      --gap:10px;
 
-      --loopEmpty:#e5e5e5;
-      --loopArmed:#fbbf24;
-      --loopRecording:#ef4444;
-      --loopReady:#22c55e;
-      --loopPlaying:#3b82f6;
+      --loopEmpty:#333;
+      --loopArmed:#b45309;
+      --loopRecording:#dc2626;
+      --loopReady:#16a34a;
+      --loopPlaying:#2563eb;
     }
 
     *{ box-sizing:border-box; }
+
+    /* Scrollbar styling for dark mode */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--card); }
+    ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #555; }
 
     body{
       margin:0;
@@ -55,13 +61,14 @@
       color:var(--text);
       user-select:none;
       -webkit-tap-highlight-color:transparent;
-      overflow:hidden;
+      overflow-x:hidden;
+      overflow-y:auto;
     }
 
     header{
       height:var(--headerH);
       position:sticky; top:0; z-index:50;
-      background:#fff;
+      background:var(--card);
       border-bottom:1px solid var(--border);
       padding:10px 12px;
       display:flex;
@@ -121,27 +128,27 @@
 
     .loopBtn.recording{
       background:var(--loopRecording);
-      border-color:#dc2626;
+      border-color:#ef4444;
       color:#fff;
       animation:pulse 0.5s ease-in-out infinite;
     }
 
     .loopBtn.ready{
       background:var(--loopReady);
-      border-color:#16a34a;
+      border-color:#22c55e;
       color:#fff;
     }
 
     .loopBtn.playing{
       background:var(--loopPlaying);
-      border-color:#2563eb;
+      border-color:#3b82f6;
       color:#fff;
       box-shadow:0 0 20px rgba(59,130,246,0.5);
     }
 
     .loopBtn.pending{
-      background:#a855f7;
-      border-color:#9333ea;
+      background:#7c3aed;
+      border-color:#a855f7;
       color:#fff;
       animation:pulse 0.6s ease-in-out infinite;
     }
@@ -169,11 +176,11 @@
       letter-spacing:0.3px;
     }
 
-    .loopStatus.armed{ color:#f59e0b; }
-    .loopStatus.recording{ color:#ef4444; }
-    .loopStatus.ready{ color:#22c55e; }
-    .loopStatus.playing{ color:#3b82f6; }
-    .loopStatus.pending{ color:#a855f7; }
+    .loopStatus.armed{ color:#fbbf24; }
+    .loopStatus.recording{ color:#f87171; }
+    .loopStatus.ready{ color:#4ade80; }
+    .loopStatus.playing{ color:#60a5fa; }
+    .loopStatus.pending{ color:#c084fc; }
 
     .loopControlBtn{
       height:32px;
@@ -182,11 +189,12 @@
       font-size:11px;
       font-weight:900;
       border:1px solid var(--border);
-      background:#fff;
+      background:var(--card);
+      color:var(--text);
       cursor:pointer;
     }
 
-    .loopControlBtn.stop{ background:#ef4444; color:#fff; border-color:#dc2626; }
+    .loopControlBtn.stop{ background:#dc2626; color:#fff; border-color:#b91c1c; }
     .loopControlBtn:disabled{ opacity:0.4; cursor:not-allowed; }
 
     .pill{
@@ -194,20 +202,21 @@
       padding:8px 10px;
       border:1px solid var(--border);
       border-radius:999px;
-      background:#fff;
+      background:var(--card);
       font-size:12px;
       color:var(--muted);
       white-space:nowrap;
     }
     .pill strong{ color:var(--text); font-weight:950; }
 
-    input[type="range"]{ accent-color:#111; }
+    input[type="range"]{ accent-color:#3b82f6; }
 
     .tempoRange{ width:140px; }
 
     button{
       border:1px solid var(--border);
-      background:#fff;
+      background:var(--card);
+      color:var(--text);
       height:40px;
       padding:0 16px;
       border-radius:14px;
@@ -217,24 +226,27 @@
       white-space:nowrap;
       touch-action:manipulation;
     }
-    button.primary{ background:#111; color:#fff; border-color:#111; }
+    button.primary{ background:#3b82f6; color:#fff; border-color:#2563eb; }
     button:disabled{ opacity:.55; cursor:not-allowed; }
 
     .wrap{
       padding:var(--gap);
-      height:calc(100vh - var(--headerH) - var(--footerH));
-      display:grid;
-      grid-template-columns: 1.25fr 1fr 1fr 0.9fr;
+      padding-bottom:calc(var(--gap) + var(--footerH));
+      display:flex;
+      flex-direction:column;
       gap:var(--gap);
-      align-items:stretch;
-      min-height:0;
     }
+    
+    .card.drums{ flex:0 0 auto; }
+    .card.card-lead{ flex:0 0 auto; }
+    .card.card-bass{ flex:0 0 auto; }
+    .card.card-mixer{ flex:0 0 auto; }
 
     .card{
       border:1px solid var(--border);
       border-radius:18px;
-      background:#fff;
-      box-shadow:0 10px 28px rgba(0,0,0,.06);
+      background:var(--card);
+      box-shadow:0 10px 28px rgba(0,0,0,.3);
       overflow:hidden;
       display:flex;
       flex-direction:column;
@@ -242,14 +254,14 @@
     }
 
     .cardHead{
-      padding:10px 12px;
+      padding:8px 10px;
       border-bottom:1px solid var(--border);
       display:flex; align-items:center; justify-content:space-between;
-      gap:10px;
+      gap:8px;
       flex:0 0 auto;
     }
     .title{
-      font-size:16px;
+      font-size:14px;
       font-weight:1000;
       letter-spacing:.2px;
     }
@@ -263,61 +275,62 @@
     }
 
     .body{
-      padding:10px;
+      padding:8px;
       display:flex;
       flex-direction:column;
-      gap:10px;
+      gap:8px;
       flex:1 1 auto;
       min-height:0;
+      overflow:hidden;
     }
 
     .drumToolsCompact{
       display:flex;
       flex-wrap:wrap;
-      gap:6px;
+      gap:4px;
       align-items:center;
       justify-content:flex-end;
     }
     .drumToolsCompact .smallBtn{
-      height:32px;
-      padding:0 10px;
-      font-size:12px;
-      border-radius:11px;
+      height:28px;
+      padding:0 8px;
+      font-size:11px;
+      border-radius:10px;
     }
 
     /* Sample bars */
     .samplerBar{
       display:flex;
-      gap:6px;
+      gap:4px;
       align-items:center;
-      padding:6px 8px;
+      padding:4px 6px;
       border:1px solid var(--border);
-      border-radius:14px;
-      background:#fff;
+      border-radius:12px;
+      background:var(--card);
       flex-wrap:wrap;
       flex:0 0 auto;
     }
     .samplerStatus{
-      font-size:12px;
+      font-size:11px;
       font-weight:950;
       color:var(--muted);
       white-space:nowrap;
-      max-width:160px;
+      max-width:140px;
       overflow:hidden;
       text-overflow:ellipsis;
     }
     .samplerKnob{
-      display:flex; align-items:center; gap:8px;
-      padding:6px 8px;
+      display:flex; align-items:center; gap:6px;
+      padding:4px 6px;
       border:1px solid var(--border);
       border-radius:999px;
-      background:#fff;
-      font-size:12px;
+      background:var(--card);
+      font-size:11px;
       color:var(--muted);
       white-space:nowrap;
-      height:32px;
+      height:26px;
     }
-    .samplerKnob input[type="range"]{ width:78px; }
+    .samplerKnob input[type="range"]{ width:60px; }
     #s1PitchVal,#s2PitchVal{ display:inline-block; width:3ch; text-align:center; font-variant-numeric:tabular-nums; }
 
     /* Drum grid */
@@ -325,23 +338,22 @@
       border:1px solid var(--gridBorder);
       border-radius:16px;
       overflow:hidden;
-      background:#fff;
+      background:var(--card);
       flex:1 1 auto;
-      min-height:320px;
       display:flex;
       flex-direction:column;
       touch-action:manipulation;
     }
     .headerRow{
       display:grid;
-      grid-template-columns: 240px repeat(16, 1fr);
+      grid-template-columns: 200px repeat(16, 1fr);
       border-bottom:1px solid var(--gridBorder);
-      background:#fff;
+      background:var(--card);
       flex:0 0 auto;
     }
     .headerCell{
-      padding:8px 4px;
-      font-size:10px;
+      padding:6px 4px;
+      font-size:9px;
       color:var(--muted);
       text-align:center;
       border-left:1px solid var(--gridBorder);
@@ -354,61 +366,61 @@
     }
     #grid{
       flex:1 1 auto;
-      min-height:260px;
-      overflow:auto;
+      min-height:0;
+      overflow:hidden;
       touch-action:manipulation;
     }
 
-    .row{ display:grid; grid-template-columns: 240px repeat(16,1fr); }
+    .row{ display:grid; grid-template-columns: 200px repeat(16,1fr); }
     .row+.row{ border-top:1px solid var(--gridBorder); }
 
     .trackCell{
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:10px;
-      padding:8px 10px;
+      gap:8px;
+      padding:4px 8px;
       border-right:1px solid var(--gridBorder);
-      background:#fff;
+      background:var(--card);
       min-width:0;
     }
     .trackLeft{
       display:flex;
       align-items:center;
-      gap:10px;
+      gap:6px;
       min-width:0;
       flex:1 1 auto;
     }
     .swatch{
-      width:12px; height:12px;
+      width:10px; height:10px;
       border-radius:999px;
-      border:1px solid rgba(0,0,0,.12);
+      border:1px solid rgba(255,255,255,.15);
       flex:0 0 auto;
     }
     .trackText{
       display:flex;
       flex-direction:column;
       min-width:0;
-      gap:2px;
+      gap:1px;
       flex:1 1 auto;
     }
     .trackName{
       font-weight:1000;
-      font-size:12px;
+      font-size:11px;
       color:var(--text);
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
-      max-width:160px;
+      max-width:120px;
       line-height:1.1;
     }
     .fileLabel{
-      font-size:10px;
+      font-size:9px;
       color:var(--muted);
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
-      max-width:160px;
+      max-width:120px;
     }
 
     /* per-drum volume slider ONLY */
@@ -416,20 +428,20 @@
       flex:0 0 auto;
       display:flex;
       align-items:center;
-      padding:3px 8px;
+      padding:2px 6px;
       border:1px solid var(--border);
       border-radius:999px;
-      height:30px;
-      background:#fff;
+      height:24px;
+      background:var(--card);
       touch-action:pan-x;
     }
     .trkVol input[type="range"]{
-      width:92px;
+      width:60px;
       touch-action:pan-x;
     }
 
     .cell{
-      height:38px;
+      height:28px;
       border-left:1px solid var(--gridBorder);
       display:flex; align-items:center; justify-content:center;
       background:var(--cellA);
@@ -442,6 +454,7 @@
     .cell.playhead{
       outline:4px solid var(--playhead);
       outline-offset:-4px;
+      box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.5);
     }
 
     .cell.on.t1{ background:var(--t1); }
@@ -466,55 +479,60 @@
     /* Bass/Lead */
     .seqControls{
       display:flex;
-      gap:8px;
+      gap:6px;
       flex-wrap:wrap;
       align-items:center;
-      margin-bottom:6px;
+      margin-bottom:4px;
       flex:0 0 auto;
     }
-    .seqControls .pill input[type="range"]{ width:120px; }
+    .seqControls .pill{ padding:4px 8px; font-size:11px; }
+    .seqControls .pill input[type="range"]{ width:80px; }
+    .seqControls .smallBtn{ height:26px; padding:0 8px; font-size:11px; }
 
     .tb_grid{
       display:grid;
-      grid-template-columns: 58px repeat(8, 1fr);
-      column-gap:8px;
+      grid-template-columns: 30px repeat(16, 1fr);
+      column-gap:2px;
       align-items:stretch;
       flex:1 1 auto;
       min-height:0;
+      overflow:hidden;
     }
     .tb_labels,.tb_col{
       display:grid;
-      grid-template-rows: 18px 50px 10px repeat(7, minmax(22px, 1fr));
-      gap:6px;
+      grid-template-rows: 14px 30px 4px repeat(7, minmax(28px, 1fr));
+      gap:3px;
       height:100%;
       min-height:0;
     }
-    .tb_labels{ font-size:12px; color:var(--muted); user-select:none; }
-    .tb_labels .muted{ font-size:11px; font-weight:950; letter-spacing:.2px; }
-    .tb_stepNum{ text-align:center; font-size:12px; font-weight:1000; user-select:none; }
+    .tb_labels{ font-size:10px; color:var(--muted); user-select:none; }
+    .tb_labels .muted{ font-size:9px; font-weight:950; letter-spacing:.2px; }
+    .tb_stepNum{ text-align:center; font-size:10px; font-weight:1000; user-select:none; }
 
-    .tb_oct{ display:grid; grid-template-rows:repeat(3,1fr); gap:6px; height:50px; }
+    .tb_oct{ display:grid; grid-template-rows:repeat(3,1fr); gap:2px; height:30px; }
     .tb_octBtn{
       width:100%;
       height:100%;
       border:1px solid var(--border);
-      background:#fff;
+      background:var(--card);
+      color:var(--text);
       cursor:pointer;
-      border-radius:8px;
+      border-radius:6px;
       touch-action:manipulation;
       font-weight:1000;
-      font-size:12px;
+      font-size:10px;
       line-height:1;
     }
-    .tb_spacer{ height:10px; }
+    .tb_spacer{ height:4px; }
     .tb_pad{
       width:100%;
       height:100%;
       border:1px solid var(--border);
       background:var(--noteGrey);
       cursor:pointer;
-      border-radius:10px;
+      border-radius:8px;
       touch-action:manipulation;
+      min-height:26px;
     }
     .tb_pad.nat{ background:var(--noteNat); }
     .bass .tb_pad.on{ background:var(--bassOn)!important; border-color:var(--bassOn)!important; }
@@ -534,72 +552,94 @@
     .chan{
       border:1px solid var(--border);
       border-radius:16px;
-      padding:10px 10px 12px;
+      padding:10px 12px;
       display:flex;
-      flex-direction:column;
-      gap:10px;
+      flex-direction:row;
+      align-items:center;
+      gap:12px;
       min-height:0;
-      background:#fff;
+      background:#252525;
     }
-    .chanTop{ display:flex; align-items:center; justify-content:space-between; gap:8px; flex:0 0 auto; }
-    .chanName{ font-weight:1000; font-size:13px; color:var(--text); }
+    .chanTop{ display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+    .chanName{ font-weight:1000; font-size:13px; color:var(--text); white-space:nowrap; }
     .muteBtn{ height:30px; padding:0 10px; border-radius:12px; font-size:12px; font-weight:1000; }
-    .muteBtn.on{ background:#111; color:#fff; border-color:#111; }
+    .muteBtn.on{ background:#ef4444; color:#fff; border-color:#dc2626; }
 
     .faderWrap{
       display:flex;
-      gap:10px;
-      align-items:flex-end;
-      justify-content:space-between;
+      gap:16px;
+      align-items:center;
+      justify-content:flex-start;
       flex:1 1 auto;
       min-height:0;
     }
-    .faderCol{ display:flex; flex-direction:column; align-items:center; gap:6px; flex:1 1 0; min-height:0; }
-    .faderLabel{ font-size:11px; color:var(--muted); font-weight:950; }
-    .vfaderShell{ position:relative; width:34px; height:220px; display:flex; align-items:center; justify-content:center; }
+    .faderCol{ display:flex; flex-direction:row; align-items:center; gap:8px; flex:1 1 0; min-width:0; }
+    .faderLabel{ font-size:11px; color:var(--muted); font-weight:950; white-space:nowrap; }
+    .vfaderShell{ display:none; }
+    .hfader{
+      -webkit-appearance:none; appearance:none;
+      width:100%; height:8px;
+      background:rgba(255,255,255,.1);
+      border-radius:4px;
+      border:1px solid rgba(255,255,255,.15);
+    }
+    .hfader::-webkit-slider-thumb{
+      -webkit-appearance:none;
+      width:18px; height:18px;
+      border-radius:999px;
+      background:#3b82f6;
+      border:2px solid #2563eb;
+      cursor:pointer;
+    }
+    .hfader::-moz-range-thumb{ width:18px; height:18px; border-radius:999px; background:#3b82f6; border:2px solid #2563eb; cursor:pointer; }
+    
+    /* Legacy vertical fader - hidden in this layout */
     .vfader{
       -webkit-appearance:none; appearance:none;
-      width:220px; height:34px;
+      width:180px; height:34px;
       background:transparent;
       transform:rotate(-90deg);
-      display:block; margin:0; padding:0;
-      touch-action:pan-x;
+      display:none;
     }
     .vfader:focus{ outline:none; }
-    .vfader::-webkit-slider-runnable-track{ height:8px; border-radius:999px; background:rgba(0,0,0,.08); border:1px solid rgba(0,0,0,.10); }
+    .vfader::-webkit-slider-runnable-track{ height:8px; border-radius:999px; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.15); }
     .vfader::-webkit-slider-thumb{
       -webkit-appearance:none;
       width:26px; height:26px;
       border-radius:999px;
-      background:#111;
-      border:2px solid #111;
+      background:#3b82f6;
+      border:2px solid #2563eb;
       margin-top:-9px;
       cursor:pointer;
     }
-    .vfader::-moz-range-track{ height:8px; border-radius:999px; background:rgba(0,0,0,.08); border:1px solid rgba(0,0,0,.10); }
-    .vfader::-moz-range-thumb{ width:26px; height:26px; border-radius:999px; background:#111; border:2px solid #111; cursor:pointer; }
+    .vfader::-moz-range-track{ height:8px; border-radius:999px; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.15); }
+    .vfader::-moz-range-thumb{ width:26px; height:26px; border-radius:999px; background:#3b82f6; border:2px solid #2563eb; cursor:pointer; }
 
     footer{
       height:var(--footerH);
       border-top:1px solid var(--border);
-      display:grid;
-      grid-template-columns: 1.25fr 1fr 1fr 0.9fr;
+      background:var(--card);
+      display:flex;
+      justify-content:flex-end;
       gap:var(--gap);
       padding:10px 12px;
       align-items:center;
       color:var(--muted);
       font-size:12px;
+      position:fixed;
+      bottom:0;
+      left:0;
+      right:0;
+      z-index:40;
     }
-    .footerSpacer{ grid-column:1 / span 3; }
-    .footerRight{ grid-column:4; justify-self:start; font-weight:900; color:var(--muted); }
+    .footerSpacer{ flex:1; }
+    .footerRight{ font-weight:900; color:var(--muted); }
 
-    @media (max-width:1200px){
-      body{ overflow:auto; }
-      .wrap{ height:auto; grid-template-columns:1fr; }
-      footer{ grid-template-columns:1fr; height:auto; }
-      .footerSpacer{ display:none; }
-      .footerRight{ grid-column:1; justify-self:end; }
-      .loopSection{ flex-wrap:wrap; }
+    @media (max-width:900px){
+      .wrap{ 
+        padding: var(--gap);
+      }
+      .mixerGrid{ grid-template-columns:1fr; }
     }
   </style>
 </head>
@@ -651,7 +691,7 @@
 
   <div class="wrap">
     <!-- DRUM MACHINE -->
-    <div class="card">
+    <div class="card drums">
       <div class="cardHead">
         <div class="title">Drum Machine</div>
         <div class="drumToolsCompact">
@@ -721,32 +761,8 @@
       </div>
     </div>
 
-    <!-- BASSLINE -->
-    <div class="card">
-      <div class="cardHead">
-        <div class="title">Bassline</div>
-        <div></div>
-      </div>
-
-      <div class="body bass">
-        <div class="seqControls">
-          <button id="bassReset" class="smallBtn">Reset</button>
-
-          <div class="pill"><span>Cut</span><input id="cutoff" type="range" min="0" max="1" step="0.001" value="0.28"></div>
-          <div class="pill"><span>Res</span><input id="reso" type="range" min="0" max="1" step="0.01" value="0.18"></div>
-          <div class="pill"><span>Env</span><input id="env" type="range" min="0" max="1" step="0.01" value="0.32"></div>
-          <div class="pill"><span>Decay</span><input id="bDecay" type="range" min="0.08" max="0.60" step="0.01" value="0.28"></div>
-
-          <div class="pill"><span>Mix</span><input id="dMix" type="range" min="0" max="1" step="0.01" value="0.16"></div>
-          <div class="pill"><span>FB</span><input id="dFb" type="range" min="0" max="0.75" step="0.01" value="0.20"></div>
-        </div>
-
-        <div id="tb_grid" class="tb_grid"></div>
-      </div>
-    </div>
-
     <!-- TRANCE LEAD -->
-    <div class="card">
+    <div class="card card-lead">
       <div class="cardHead">
         <div class="title">Trance Lead</div>
         <div></div>
@@ -769,8 +785,32 @@
       </div>
     </div>
 
+    <!-- BASSLINE -->
+    <div class="card card-bass">
+      <div class="cardHead">
+        <div class="title">Bassline</div>
+        <div></div>
+      </div>
+
+      <div class="body bass">
+        <div class="seqControls">
+          <button id="bassReset" class="smallBtn">Reset</button>
+
+          <div class="pill"><span>Cut</span><input id="cutoff" type="range" min="0" max="1" step="0.001" value="0.28"></div>
+          <div class="pill"><span>Res</span><input id="reso" type="range" min="0" max="1" step="0.01" value="0.18"></div>
+          <div class="pill"><span>Env</span><input id="env" type="range" min="0" max="1" step="0.01" value="0.32"></div>
+          <div class="pill"><span>Decay</span><input id="bDecay" type="range" min="0.08" max="0.60" step="0.01" value="0.28"></div>
+
+          <div class="pill"><span>Mix</span><input id="dMix" type="range" min="0" max="1" step="0.01" value="0.16"></div>
+          <div class="pill"><span>FB</span><input id="dFb" type="range" min="0" max="0.75" step="0.01" value="0.20"></div>
+        </div>
+
+        <div id="tb_grid" class="tb_grid"></div>
+      </div>
+    </div>
+
     <!-- MIXER -->
-    <div class="card">
+    <div class="card card-mixer">
       <div class="cardHead">
         <div class="title">Mixer</div>
         <div></div>
@@ -792,11 +832,11 @@
             <div class="faderWrap">
               <div class="faderCol">
                 <div class="faderLabel">Vol</div>
-                <div class="vfaderShell"><input id="mDrumVol" class="vfader" type="range" min="0" max="1" step="0.01" value="0.22"></div>
+                <input id="mDrumVol" class="hfader" type="range" min="0" max="1" step="0.01" value="0.22">
               </div>
               <div class="faderCol">
                 <div class="faderLabel">LPF</div>
-                <div class="vfaderShell"><input id="mDrumLPF" class="vfader" type="range" min="0" max="1" step="0.01" value="1.00"></div>
+                <input id="mDrumLPF" class="hfader" type="range" min="0" max="1" step="0.01" value="1.00">
               </div>
             </div>
           </div>
@@ -809,11 +849,11 @@
             <div class="faderWrap">
               <div class="faderCol">
                 <div class="faderLabel">Vol</div>
-                <div class="vfaderShell"><input id="mBassVol" class="vfader" type="range" min="0" max="1" step="0.01" value="0.22"></div>
+                <input id="mBassVol" class="hfader" type="range" min="0" max="1" step="0.01" value="0.22">
               </div>
               <div class="faderCol">
                 <div class="faderLabel">LPF</div>
-                <div class="vfaderShell"><input id="mBassLPF" class="vfader" type="range" min="0" max="1" step="0.01" value="1.00"></div>
+                <input id="mBassLPF" class="hfader" type="range" min="0" max="1" step="0.01" value="1.00">
               </div>
             </div>
           </div>
@@ -826,11 +866,11 @@
             <div class="faderWrap">
               <div class="faderCol">
                 <div class="faderLabel">Vol</div>
-                <div class="vfaderShell"><input id="mLeadVol" class="vfader" type="range" min="0" max="1" step="0.01" value="0.26"></div>
+                <input id="mLeadVol" class="hfader" type="range" min="0" max="1" step="0.01" value="0.26">
               </div>
               <div class="faderCol">
                 <div class="faderLabel">LPF</div>
-                <div class="vfaderShell"><input id="mLeadLPF" class="vfader" type="range" min="0" max="1" step="0.01" value="1.00"></div>
+                <input id="mLeadLPF" class="hfader" type="range" min="0" max="1" step="0.01" value="1.00">
               </div>
             </div>
           </div>
@@ -908,7 +948,8 @@
     const loopSlots = [null, null, null, null]; // AudioBuffer for each slot
     let armedSlot = -1; // Which slot is armed for recording (-1 = none)
     let recordingSlot = -1; // Which slot is currently recording (-1 = none)
-    let recordingBarCount = 0; // How many bars have been recorded (need 4)
+    let recordingBarCount = 0; // Current bar being recorded (1-4)
+    let recordingStarted = false; // Flag to track if recording has started (to know when to stop)
     let playingSlot = -1; // Which slot is playing (-1 = none)
     let pendingPlaySlot = -1; // Which slot is queued to play
     let loopBarsPlayed = 0; // How many bars the current loop has played (0-4)
@@ -985,6 +1026,7 @@
       
       recordingSlot = slot;
       recordingBarCount = 1; // Starting bar 1
+      recordingStarted = false; // Will be set to true after first step 0 completes
       armedSlot = -1;
       loopChunks = [];
       
@@ -1028,6 +1070,7 @@
           } finally {
             recordingSlot = -1;
             recordingBarCount = 0;
+            recordingStarted = false;
             updateLoopUI();
           }
         };
@@ -1039,6 +1082,7 @@
         console.error("Loop record error:", err);
         recordingSlot = -1;
         recordingBarCount = 0;
+        recordingStarted = false;
         updateLoopUI();
       }
     }
@@ -1951,7 +1995,7 @@
     // Semitones from A (A=0)
     const NOTE_TO_SEMI = { "A":0, "B":2, "C":3, "D":5, "E":7, "F":8, "G":10 };
 
-    function makeSeqState(){ return { steps: Array.from({length:8}, () => ({ note:null, oct:0 })) }; }
+    function makeSeqState(){ return { steps: Array.from({length:16}, () => ({ note:null, oct:0 })) }; }
     let bassState = makeSeqState();
     let leadState = makeSeqState();
 
@@ -1987,7 +2031,7 @@
 
       rootEl.appendChild(labels);
 
-      for(let s=0;s<8;s++){
+      for(let s=0;s<16;s++){
         const col = document.createElement("div");
         col.className = "tb_col";
 
@@ -2229,9 +2273,8 @@
       return 440 * Math.pow(2, (midi - 69) / 12);
     }
 
-    // BASS stays at "original" rate (every 8th): step16 even -> advance bassStep
+    // BASS plays every 16th note step
     function scheduleBass(step16, t){
-      if(step16 % 2 !== 0) return; // every 2 sixteenths
       ensureSynths();
 
       const b = bassState.steps[bassStep];
@@ -2242,11 +2285,11 @@
         const baseCut = clamp(+cutEl.value || 0, 0, 1);
         bassSynth.trigger({ freq, time:t, decay, gate:0.55, envAmt, baseCut01: baseCut, release:0.10, vel:1.0 });
       }
-      bassStep = (bassStep + 1) % 8;
+      bassStep = (bassStep + 1) % 16;
       applyBassParams(false);
     }
 
-    // LEAD is DOUBLE TEMPO: advance EVERY 16th (so 2x faster than bass)
+    // LEAD plays every 16th note step
     function scheduleLead(step16, t){
       ensureSynths();
 
@@ -2258,7 +2301,7 @@
         const gate = clamp(+lGateEl.value || 0.55, 0.10, 1.0);
         leadSynth.trigger({ freq, time:t, decay:0.22, gate, envAmt, baseCut01: baseCut, release:0.11, vel:1.0 });
       }
-      leadStep = (leadStep + 1) % 8;
+      leadStep = (leadStep + 1) % 16;
       applyLeadParams(false);
     }
 
@@ -2268,15 +2311,37 @@
       const currentBar = Math.floor(stepIndex / 4) + 1; // 1, 2, 3, or 4
       const isBarStart = (stepIndex % 4 === 0);
       
-      // Update the bar display for playing loop
+      // Update the bar display for playing loop at each bar boundary
       if(isBarStart && playingSlot >= 0){
         loopBarsPlayed = currentBar;
         updateLoopUI();
       }
       
-      // At step 0 (start of 4-bar cycle) - this is where loops switch
+      // Update recording bar display at each bar boundary
+      if(isBarStart && recordingSlot >= 0){
+        recordingBarCount = currentBar;
+        updateLoopUI();
+      }
+      
+      // At step 15 (last step of 4-bar cycle) - mark recording as complete
+      if(stepIndex === 15 && recordingSlot >= 0){
+        recordingStarted = true; // Flag that we've completed a full cycle
+      }
+      
+      // At step 0 (start of 4-bar cycle)
       if(stepIndex === 0){
-        // If there's a pending loop, switch to it now (after previous 4-bar cycle completed)
+        // Stop recording if a full cycle has completed
+        if(recordingSlot >= 0 && recordingStarted){
+          stopLoopRecording();
+          recordingStarted = false;
+        }
+        
+        // Start recording if armed (and not already recording)
+        if(armedSlot >= 0 && recordingSlot < 0){
+          startLoopRecording(armedSlot);
+        }
+        
+        // Handle loop playback - switch to pending loop or retrigger current
         if(pendingPlaySlot >= 0){
           // Stop old loop audio if any
           if(loopSource){
@@ -2293,22 +2358,8 @@
           // Same loop continues - retrigger the audio for seamless playback
           loopBarsPlayed = 1;
           triggerLoopAudio(playingSlot, time);
+          updateLoopUI();
         }
-        
-        // Handle recording - stop after 4 bars
-        if(recordingSlot >= 0 && recordingBarCount >= 4){
-          stopLoopRecording();
-        }
-        
-        // Start recording if armed
-        if(armedSlot >= 0 && recordingSlot < 0){
-          startLoopRecording(armedSlot);
-        }
-      }
-      
-      // Increment recording bar count at bar boundaries (steps 4, 8, 12)
-      if(isBarStart && stepIndex > 0 && recordingSlot >= 0 && recordingBarCount > 0 && recordingBarCount < 4){
-        incrementBarCount();
       }
 
       for(const tr of tracks){
@@ -2438,7 +2489,7 @@
     const loadFileBtn = document.getElementById("loadFileBtn");
     const loadFileInput = document.getElementById("loadFileInput");
 
-    const STORE_KEY = "mm_drum_bass_lead_mixer_Anatural_v2";
+    const STORE_KEY = "mm_drum_bass_lead_mixer_Anatural_v3_16step";
 
     let saveTimer=null;
     let dirty=false;
@@ -2511,8 +2562,16 @@
         }
       }
 
-      if(st.bassState) bassState = st.bassState;
-      if(st.leadState) leadState = st.leadState;
+      if(st.bassState){
+        bassState = st.bassState;
+        // Ensure 16 steps (upgrade from old 8-step saves)
+        while(bassState.steps.length < 16) bassState.steps.push({ note:null, oct:0 });
+      }
+      if(st.leadState){
+        leadState = st.leadState;
+        // Ensure 16 steps (upgrade from old 8-step saves)
+        while(leadState.steps.length < 16) leadState.steps.push({ note:null, oct:0 });
+      }
 
       if(st.params?.bass){
         cutEl.value = String(clamp(st.params.bass.cut ?? +cutEl.value,0,1));
