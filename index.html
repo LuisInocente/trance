@@ -500,7 +500,7 @@
     }
     .tb_labels,.tb_col{
       display:grid;
-      grid-template-rows: 14px 30px 4px repeat(7, minmax(28px, 1fr));
+      grid-template-rows: 14px 42px 4px repeat(7, minmax(28px, 1fr));
       gap:3px;
       height:100%;
       min-height:0;
@@ -509,7 +509,7 @@
     .tb_labels .muted{ font-size:9px; font-weight:950; letter-spacing:.2px; }
     .tb_stepNum{ text-align:center; font-size:10px; font-weight:1000; user-select:none; }
 
-    .tb_oct{ display:grid; grid-template-rows:repeat(3,1fr); gap:2px; height:30px; }
+    .tb_oct{ display:grid; grid-template-rows:repeat(3,1fr); gap:2px; height:42px; }
     .tb_octBtn{
       width:100%;
       height:100%;
@@ -520,7 +520,7 @@
       border-radius:6px;
       touch-action:manipulation;
       font-weight:1000;
-      font-size:10px;
+      font-size:11px;
       line-height:1;
     }
     .tb_spacer{ height:4px; }
@@ -536,9 +536,13 @@
     }
     .tb_pad.nat{ background:var(--noteNat); }
     .bass .tb_pad.on{ background:var(--bassOn)!important; border-color:var(--bassOn)!important; }
-    .bass .tb_octBtn.on{ background:var(--bassOn)!important; border-color:var(--bassOn)!important; color:#fff; }
+    .bass .tb_octBtn.on.oct-up{ background:#dc2626!important; border-color:#b91c1c!important; color:#fff; }
+    .bass .tb_octBtn.on.oct-mid{ background:var(--bassOn)!important; border-color:var(--bassOn)!important; color:#fff; }
+    .bass .tb_octBtn.on.oct-down{ background:#7f1d1d!important; border-color:#5c1616!important; color:#fff; }
     .lead .tb_pad.on{ background:var(--leadOn)!important; border-color:var(--leadOn)!important; }
-    .lead .tb_octBtn.on{ background:var(--leadOn)!important; border-color:var(--leadOn)!important; color:#fff; }
+    .lead .tb_octBtn.on.oct-up{ background:#a855f7!important; border-color:#9333ea!important; color:#fff; }
+    .lead .tb_octBtn.on.oct-mid{ background:var(--leadOn)!important; border-color:var(--leadOn)!important; color:#fff; }
+    .lead .tb_octBtn.on.oct-down{ background:#4c1d95!important; border-color:#3b1578!important; color:#fff; }
 
     /* Mixer */
     .mixerGrid{
@@ -949,10 +953,10 @@
     let armedSlot = -1; // Which slot is armed for recording (-1 = none)
     let recordingSlot = -1; // Which slot is currently recording (-1 = none)
     let recordingBarCount = 0; // Current bar being recorded (1-4)
-    let recordingStarted = false; // Flag to track if recording has started (to know when to stop)
     let playingSlot = -1; // Which slot is playing (-1 = none)
     let pendingPlaySlot = -1; // Which slot is queued to play
-    let loopBarsPlayed = 0; // How many bars the current loop has played (0-4)
+    let loopBarsPlayed = 0; // How many bars the current loop has played (1-4)
+    let currentBar = 0; // Current bar in the 4-bar cycle (1-4), increments at step 0
     let loopRecorder = null; // MediaRecorder for loop recording
     let loopChunks = [];
     let loopSource = null; // Current playing loop source
@@ -1026,7 +1030,6 @@
       
       recordingSlot = slot;
       recordingBarCount = 1; // Starting bar 1
-      recordingStarted = false; // Will be set to true after first step 0 completes
       armedSlot = -1;
       loopChunks = [];
       
@@ -1070,7 +1073,6 @@
           } finally {
             recordingSlot = -1;
             recordingBarCount = 0;
-            recordingStarted = false;
             updateLoopUI();
           }
         };
@@ -1082,7 +1084,6 @@
         console.error("Loop record error:", err);
         recordingSlot = -1;
         recordingBarCount = 0;
-        recordingStarted = false;
         updateLoopUI();
       }
     }
@@ -2044,17 +2045,17 @@
         octWrap.className = "tb_oct";
 
         const btnTop = document.createElement("button");
-        btnTop.className = "tb_octBtn";
+        btnTop.className = "tb_octBtn oct-up";
         btnTop.textContent = "";
         btnTop.addEventListener("click", () => { state.steps[s].oct = +1; renderSeqGrid(rootEl, state, kind); scheduleSave(); });
 
         const btnMid = document.createElement("button");
-        btnMid.className = "tb_octBtn";
+        btnMid.className = "tb_octBtn oct-mid";
         btnMid.textContent = "";
         btnMid.addEventListener("click", () => { state.steps[s].oct = 0; renderSeqGrid(rootEl, state, kind); scheduleSave(); });
 
         const btnBot = document.createElement("button");
-        btnBot.className = "tb_octBtn";
+        btnBot.className = "tb_octBtn oct-down";
         btnBot.textContent = "";
         btnBot.addEventListener("click", () => { state.steps[s].oct = -1; renderSeqGrid(rootEl, state, kind); scheduleSave(); });
 
@@ -2306,58 +2307,64 @@
     }
 
     function scheduleStep(stepIndex, time){
-      // The 16-step grid represents 4 bars (4 steps per bar)
-      // Bar boundaries: step 0=Bar1, step 4=Bar2, step 8=Bar3, step 12=Bar4
-      const currentBar = Math.floor(stepIndex / 4) + 1; // 1, 2, 3, or 4
-      const isBarStart = (stepIndex % 4 === 0);
+      // 16 steps = 1 bar of 16th notes
+      // At step 0, we're starting a new bar
       
-      // Update the bar display for playing loop at each bar boundary
-      if(isBarStart && playingSlot >= 0){
-        loopBarsPlayed = currentBar;
-        updateLoopUI();
-      }
-      
-      // Update recording bar display at each bar boundary
-      if(isBarStart && recordingSlot >= 0){
-        recordingBarCount = currentBar;
-        updateLoopUI();
-      }
-      
-      // At step 15 (last step of 4-bar cycle) - mark recording as complete
-      if(stepIndex === 15 && recordingSlot >= 0){
-        recordingStarted = true; // Flag that we've completed a full cycle
-      }
-      
-      // At step 0 (start of 4-bar cycle)
       if(stepIndex === 0){
-        // Stop recording if a full cycle has completed
-        if(recordingSlot >= 0 && recordingStarted){
-          stopLoopRecording();
-          recordingStarted = false;
-        }
+        // Increment bar counter (1, 2, 3, 4, then back to 1)
+        currentBar++;
+        if(currentBar > 4) currentBar = 1;
         
-        // Start recording if armed (and not already recording)
-        if(armedSlot >= 0 && recordingSlot < 0){
+        // ---- RECORDING LOGIC ----
+        if(recordingSlot >= 0){
+          // Recording in progress - check if we've done 4 bars
+          if(recordingBarCount >= 4){
+            // Finished 4 bars, stop recording
+            stopLoopRecording();
+          } else {
+            // Still recording, increment bar count
+            recordingBarCount++;
+            updateLoopUI();
+            setStatus(`Recording Loop ${recordingSlot + 1}... (Bar ${recordingBarCount}/4)`);
+          }
+        } else if(armedSlot >= 0){
+          // Start recording at bar 1
+          currentBar = 1;
           startLoopRecording(armedSlot);
         }
         
-        // Handle loop playback - switch to pending loop or retrigger current
-        if(pendingPlaySlot >= 0){
-          // Stop old loop audio if any
-          if(loopSource){
-            try { loopSource.stop(0); } catch(_){}
-            loopSource = null;
+        // ---- LOOP PLAYBACK LOGIC ----
+        if(playingSlot >= 0){
+          // Loop is playing
+          if(loopBarsPlayed >= 4){
+            // Finished 4 bars
+            if(pendingPlaySlot >= 0){
+              // Switch to pending loop
+              if(loopSource){
+                try { loopSource.stop(0); } catch(_){}
+                loopSource = null;
+              }
+              playingSlot = pendingPlaySlot;
+              pendingPlaySlot = -1;
+              loopBarsPlayed = 1;
+              triggerLoopAudio(playingSlot, time);
+              setStatus(`Playing Loop ${playingSlot + 1}`);
+            } else {
+              // Restart same loop
+              loopBarsPlayed = 1;
+              triggerLoopAudio(playingSlot, time);
+            }
+          } else {
+            loopBarsPlayed++;
           }
+          updateLoopUI();
+        } else if(pendingPlaySlot >= 0){
+          // No loop playing but one is queued - start it
           playingSlot = pendingPlaySlot;
           pendingPlaySlot = -1;
           loopBarsPlayed = 1;
           triggerLoopAudio(playingSlot, time);
           setStatus(`Playing Loop ${playingSlot + 1}`);
-          updateLoopUI();
-        } else if(playingSlot >= 0){
-          // Same loop continues - retrigger the audio for seamless playback
-          loopBarsPlayed = 1;
-          triggerLoopAudio(playingSlot, time);
           updateLoopUI();
         }
       }
@@ -2432,6 +2439,7 @@
       drumStep = 0;
       bassStep = 0;
       leadStep = 0;
+      currentBar = 0; // Will become 1 at first step 0
       loopBarsPlayed = 0; // Reset - loop will start fresh at step 0
 
       startTime = ctx.currentTime + 0.06;
@@ -2470,6 +2478,7 @@
       pendingPlaySlot = -1;
       playingSlot = -1;
       loopBarsPlayed = 0;
+      currentBar = 0;
       updateLoopUI();
 
       hardStopAllSources();
