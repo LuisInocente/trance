@@ -960,6 +960,7 @@
     let loopRecorder = null; // MediaRecorder for loop recording
     let loopChunks = [];
     let loopSource = null; // Current playing loop source
+    let loopBarTimer = null; // Timer for tracking bars when playing independently
 
     function updateLoopUI(){
       loopBtns.forEach((btn, i) => {
@@ -1041,12 +1042,15 @@
         
         loopRecorder.onstop = async () => {
           const slotToSave = recordingSlot;
+          console.log("Loop recording stopped, saving to slot", slotToSave);
           try {
             const blob = new Blob(loopChunks, { type: loopRecorder.mimeType || "audio/webm" });
+            console.log("Blob size:", blob.size);
             const arr = await blob.arrayBuffer();
             let buf = await new Promise((resolve, reject) => 
               ctx.decodeAudioData(arr, resolve, reject)
             );
+            console.log("Decoded buffer:", buf.duration, "seconds,", buf.numberOfChannels, "channels");
             
             // Calculate exact 4-bar duration based on tempo
             const bpm = tempo();
@@ -1066,6 +1070,7 @@
             
             // Apply fade to remove clicks
             loopSlots[slotToSave] = applyLoopFade(buf, 50);
+            console.log("Loop saved to slot", slotToSave, "buffer:", !!loopSlots[slotToSave]);
             setStatus(`Loop ${slotToSave + 1} recorded! ✅`);
           } catch(err) {
             console.error("Loop decode error:", err);
@@ -1103,7 +1108,21 @@
     }
 
     function queueLoop(slot){
-      if(!ctx || !loopSlots[slot]) return;
+      // Ensure audio context is set up
+      ensureAudio();
+      
+      console.log("queueLoop called", { slot, ctx: !!ctx, loopSlots: loopSlots.map(s => !!s), playingSlot, master: !!master });
+      if(!ctx || !loopSlots[slot]) {
+        console.log("queueLoop early return - no ctx or no loop in slot");
+        return;
+      }
+      
+      // If same loop is already playing, stop it
+      if(playingSlot === slot){
+        stopLoopPlayback();
+        setStatus(`Loop ${slot + 1} stopped`);
+        return;
+      }
       
       // If same loop is already pending, cancel it
       if(pendingPlaySlot === slot){
@@ -1113,29 +1132,64 @@
         return;
       }
       
-      // If a loop is currently playing, queue the new one to play after 4 bars
+      // If another loop is currently playing, queue this one
       if(playingSlot >= 0){
         pendingPlaySlot = slot;
         updateLoopUI();
-        const barsLeft = 5 - loopBarsPlayed; // loopBarsPlayed is 1-4, so 5-x gives bars remaining
+        const barsLeft = 5 - loopBarsPlayed;
         setStatus(`Loop ${slot + 1} queued - plays in ${barsLeft} bar${barsLeft !== 1 ? 's' : ''}`);
         return;
       }
       
-      // No loop playing - queue it to start at next bar 1 (step 0)
-      pendingPlaySlot = slot;
+      // No loop playing - play immediately
+      console.log("Starting loop playback immediately");
+      playingSlot = slot;
+      loopBarsPlayed = 1;
+      triggerLoopAudio(slot, ctx.currentTime);
+      setStatus(`Playing Loop ${slot + 1}`);
       updateLoopUI();
+    }
+
+    // Start timer to track bars for independent loop playback
+    function startLoopBarTimer(){
+      stopLoopBarTimer();
+      const barDuration = (60 / tempo()) * 4 * 1000; // 4 beats per bar in ms
       
-      if(!isRunning){
-        setStatus(`Loop ${slot + 1} queued - press Play to start`);
-      } else {
-        setStatus(`Loop ${slot + 1} queued - starts at bar 1`);
+      loopBarTimer = setInterval(() => {
+        if(playingSlot < 0) {
+          stopLoopBarTimer();
+          return;
+        }
+        
+        // Check if we should switch to pending loop
+        if(loopBarsPlayed >= 4 && pendingPlaySlot >= 0){
+          playingSlot = pendingPlaySlot;
+          pendingPlaySlot = -1;
+          loopBarsPlayed = 1;
+          triggerLoopAudio(playingSlot, ctx.currentTime);
+          setStatus(`Playing Loop ${playingSlot + 1}`);
+        } else {
+          loopBarsPlayed++;
+          if(loopBarsPlayed > 4) loopBarsPlayed = 1;
+        }
+        updateLoopUI();
+      }, barDuration);
+    }
+    
+    function stopLoopBarTimer(){
+      if(loopBarTimer){
+        clearInterval(loopBarTimer);
+        loopBarTimer = null;
       }
     }
 
     // Actually start playing a loop audio (called from scheduleStep at the right time)
     function triggerLoopAudio(slot, time){
-      if(!ctx || !loopSlots[slot]) return;
+      console.log("triggerLoopAudio called", { slot, time, ctx: !!ctx, master: !!master, buffer: !!loopSlots[slot] });
+      if(!ctx || !master || !loopSlots[slot]) {
+        console.log("triggerLoopAudio early return", { ctx: !!ctx, master: !!master, buffer: !!loopSlots[slot] });
+        return;
+      }
       
       // Stop any currently playing loop audio
       if(loopSource){
@@ -1150,12 +1204,24 @@
       loopSource.connect(master);
       
       loopSource.onended = () => {
-        // Audio was stopped manually
+        console.log("Loop source ended");
       };
       
       // Start at scheduled time, or immediately if time is in the past
       const startTime = (time && time > ctx.currentTime) ? time : ctx.currentTime;
-      try { loopSource.start(startTime); } catch(e){ console.error("Loop start error:", e); }
+      console.log("Starting loop source at", startTime);
+      try { 
+        loopSource.start(startTime); 
+        console.log("Loop source started successfully");
+      } catch(e){ 
+        console.error("Loop start error:", e); 
+      }
+      
+      // Start bar tracking timer if sequencer is not running
+      if(!isRunning){
+        console.log("Starting loop bar timer (sequencer not running)");
+        startLoopBarTimer();
+      }
     }
 
     function playLoop(slot){
@@ -1166,6 +1232,7 @@
       pendingPlaySlot = -1;
       playingSlot = -1;
       loopBarsPlayed = 0;
+      stopLoopBarTimer();
       if(loopSource){
         try { loopSource.stop(0); } catch(_){}
         loopSource = null;
@@ -1187,19 +1254,16 @@
     // Loop button click handlers
     loopBtns.forEach((btn, i) => {
       btn.addEventListener("click", async () => {
+        console.log("Loop button clicked", i, "loopSlots[i]:", !!loopSlots[i]);
+        
+        // Ensure audio context is created and resumed
+        ensureAudio();
         await resumeAudio();
         
-        if(playingSlot === i){
-          // If this loop is playing, stop all loop playback
-          stopLoopPlayback();
-          setStatus(`Loop ${i + 1} stopped`);
-        } else if(pendingPlaySlot === i){
-          // If this loop is pending, cancel it
-          pendingPlaySlot = -1;
-          updateLoopUI();
-          setStatus(`Loop ${i + 1} cancelled`);
-        } else if(loopSlots[i]){
-          // If this slot has a recorded loop, queue it to play
+        console.log("After resumeAudio - ctx:", !!ctx, "master:", !!master);
+        
+        if(loopSlots[i]){
+          // If this slot has a recorded loop, play/stop/queue it
           queueLoop(i);
         } else if(!isRunning){
           // If sequencer not playing, arm for recording
@@ -2434,6 +2498,14 @@
       leadStep = 0;
       currentBar = 0; // Will become 1 at first step 0
       loopBarsPlayed = 0; // Reset - loop will start fresh at step 0
+      
+      // Stop independent loop bar timer - sequencer will handle it now
+      stopLoopBarTimer();
+      
+      // Stop any independently playing loop
+      if(playingSlot >= 0){
+        stopLoopPlayback();
+      }
 
       startTime = ctx.currentTime + 0.06;
       nextTime = startTime;
@@ -2461,7 +2533,8 @@
       // Stop any ongoing loop recording
       if(recordingSlot >= 0) stopLoopRecording();
       
-      // Stop loop audio
+      // Stop loop audio and timer
+      stopLoopBarTimer();
       if(loopSource){
         try { loopSource.stop(0); } catch(_){}
         loopSource = null;
