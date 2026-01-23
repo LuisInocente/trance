@@ -689,9 +689,40 @@
         </div>
         <button class="loopControlBtn stop" id="loopStopBtn">Stop</button>
         <button class="loopControlBtn" id="loopClearBtn">Clear</button>
+        <button class="loopControlBtn" id="shareBtn" style="background:#8b5cf6;color:#fff;border-color:#7c3aed;">Share</button>
+        <button class="loopControlBtn" id="loadShareBtn" style="background:#3b82f6;color:#fff;border-color:#2563eb;">Load</button>
       </div>
     </div>
   </header>
+
+  <!-- Share Modal -->
+  <div id="shareModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:100;align-items:center;justify-content:center;">
+    <div style="background:var(--card);border-radius:16px;padding:24px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto;">
+      <h2 style="margin:0 0 16px;font-size:18px;color:var(--text);" id="shareModalTitle">Share Your Music</h2>
+      
+      <div id="shareExportSection">
+        <label style="display:block;margin-bottom:8px;color:var(--muted);font-size:12px;">Your Name:</label>
+        <input type="text" id="shareName" placeholder="Enter your name" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);margin-bottom:16px;font-size:14px;">
+        
+        <label style="display:block;margin-bottom:8px;color:var(--muted);font-size:12px;">Share Code:</label>
+        <textarea id="shareCode" readonly style="width:100%;height:80px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:monospace;font-size:11px;resize:none;"></textarea>
+        <button id="copyCodeBtn" style="margin-top:8px;padding:10px 20px;background:#22c55e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">📋 Copy Code</button>
+      </div>
+      
+      <div id="shareImportSection" style="display:none;">
+        <label style="display:block;margin-bottom:8px;color:var(--muted);font-size:12px;">Paste a Share Code:</label>
+        <textarea id="loadCode" placeholder="Paste code here..." style="width:100%;height:80px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:monospace;font-size:11px;resize:none;"></textarea>
+        <button id="loadCodeBtn" style="margin-top:8px;padding:10px 20px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">▶ Load & Play</button>
+        
+        <div id="loadedProjectInfo" style="display:none;margin-top:16px;padding:12px;background:var(--bg);border-radius:8px;">
+          <div style="font-weight:bold;color:var(--text);" id="loadedProjectName"></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;" id="loadedProjectDetails"></div>
+        </div>
+      </div>
+      
+      <button id="closeModalBtn" style="margin-top:16px;padding:10px 20px;background:var(--border);color:var(--text);border:none;border-radius:8px;cursor:pointer;width:100%;">Close</button>
+    </div>
+  </div>
 
   <div class="wrap">
     <!-- DRUM MACHINE -->
@@ -1008,15 +1039,13 @@
     }
 
     function startLoopRecording(slot){
-      console.log("startLoopRecording called", { slot, ctx: !!ctx });
       if(!ctx) return;
       
       recordingSlot = slot;
-      recordingBarCount = 1; // Starting bar 1
+      recordingBarCount = 1;
       armedSlot = -1;
       
       // Capture current pattern state as "MIDI" data
-      // We snapshot the patterns now - they represent what will play for 4 bars
       const patternData = {
         drums: tracks.map(tr => ({
           key: tr.key,
@@ -1058,9 +1087,6 @@
         tempo: tempo()
       };
       
-      console.log("Pattern data captured:", patternData);
-      
-      // Store pattern data in slot (will be finalized when recording stops)
       loopSlots[slot] = patternData;
       
       updateLoopUI();
@@ -1076,11 +1102,9 @@
     }
 
     function stopLoopRecording(){
-      console.log("stopLoopRecording called", { recordingSlot, loopSlots: loopSlots.map(s => !!s) });
       if(recordingSlot < 0) return;
       
       const slot = recordingSlot;
-      console.log("Loop recorded in slot", slot, "pattern:", loopSlots[slot]);
       setStatus(`Loop ${slot + 1} recorded! ✅`);
       
       recordingSlot = -1;
@@ -1089,23 +1113,16 @@
     }
 
     function queueLoop(slot){
-      console.log("queueLoop called", { slot, loopSlots: loopSlots.map(s => !!s), playingSlot });
-      // Ensure audio context is set up
       ensureAudio();
       
-      if(!ctx || !loopSlots[slot]) {
-        console.log("queueLoop - no ctx or no loop in slot");
-        return;
-      }
+      if(!ctx || !loopSlots[slot]) return;
       
-      // If same loop is already playing, stop it
       if(playingSlot === slot){
         stopLoopPlayback();
         setStatus(`Loop ${slot + 1} stopped`);
         return;
       }
       
-      // If same loop is already pending, cancel it
       if(pendingPlaySlot === slot){
         pendingPlaySlot = -1;
         updateLoopUI();
@@ -1113,7 +1130,6 @@
         return;
       }
       
-      // If another loop is currently playing, queue this one
       if(playingSlot >= 0){
         pendingPlaySlot = slot;
         updateLoopUI();
@@ -1122,8 +1138,6 @@
         return;
       }
       
-      // No loop playing - play immediately
-      console.log("Starting loop playback for slot", slot);
       playingSlot = slot;
       loopBarsPlayed = 1;
       triggerLoopAudio(slot, ctx.currentTime);
@@ -1133,49 +1147,32 @@
 
     // Start scheduler for independent loop playback (pattern-based, like MIDI)
     function startLoopScheduler(){
-      console.log("startLoopScheduler called", { playingSlot, pattern: loopSlots[playingSlot] });
       stopLoopScheduler();
-      if(playingSlot < 0 || !loopSlots[playingSlot]) {
-        console.log("startLoopScheduler - no pattern to play");
-        return;
-      }
+      if(playingSlot < 0 || !loopSlots[playingSlot]) return;
       
       ensureSynths();
-      console.log("Synths ensured", { bassSynth: !!bassSynth, leadSynth: !!leadSynth });
       
       loopStep = 0;
       loopNextTime = ctx.currentTime + 0.05;
       
       function scheduleLoopStep(){
-        if(playingSlot < 0) {
-          console.log("scheduleLoopStep - playingSlot is -1, stopping");
-          return;
-        }
+        if(playingSlot < 0) return;
         
         const pattern = loopSlots[playingSlot];
-        if(!pattern) {
-          console.log("scheduleLoopStep - no pattern");
-          return;
-        }
+        if(!pattern) return;
         
         const stepDur = sixteenthSec();
         const lookAhead = 0.1;
         
         while(loopNextTime < ctx.currentTime + lookAhead){
-          // Play this step from pattern data
-          console.log("Playing step", loopStep, "at", loopNextTime);
           playLoopStep(pattern, loopStep, loopNextTime);
           
-          // Advance step
           loopStep++;
           if(loopStep >= 16){
             loopStep = 0;
-            // Completed one bar (16 steps)
             loopBarsPlayed++;
-            console.log("Bar completed, loopBarsPlayed:", loopBarsPlayed);
             if(loopBarsPlayed > 4){
               loopBarsPlayed = 1;
-              // Check for pending loop switch
               if(pendingPlaySlot >= 0){
                 playingSlot = pendingPlaySlot;
                 pendingPlaySlot = -1;
@@ -1191,7 +1188,6 @@
         loopScheduler = setTimeout(scheduleLoopStep, 25);
       }
       
-      console.log("Starting scheduleLoopStep");
       scheduleLoopStep();
     }
     
@@ -1204,17 +1200,12 @@
     
     // Play a single step from pattern data
     function playLoopStep(pattern, stepIndex, time){
-      if(!ctx || !pattern) {
-        console.log("playLoopStep - no ctx or pattern");
-        return;
-      }
+      if(!ctx || !pattern) return;
       
       // Play drums
       for(const drumTrack of pattern.drums){
         if(drumTrack.pattern[stepIndex]){
-          // Find the actual track to get the buffer
           const tr = tracks.find(t => t.key === drumTrack.key);
-          console.log("Playing drum", drumTrack.key, "buffer:", !!tr?.buffer);
           if(tr && tr.buffer){
             if(drumTrack.key === "kick") triggerSidechain(time);
             
@@ -1234,7 +1225,6 @@
       // Play bass
       const bassData = pattern.bass.steps[stepIndex];
       if(bassData && bassData.note){
-        console.log("Playing bass note", bassData.note, bassData.oct);
         const freq = hzForNote(bassData.note, bassData.oct);
         const p = pattern.params.bass;
         bassSynth.trigger({
@@ -1251,7 +1241,6 @@
       // Play lead
       const leadData = pattern.lead.steps[stepIndex];
       if(leadData && leadData.note){
-        console.log("Playing lead note", leadData.note, leadData.oct);
         const freq = hzForNote(leadData.note, leadData.oct + 1);
         const p = pattern.params.lead;
         leadSynth.trigger({
@@ -1266,20 +1255,11 @@
       }
     }
     
-    // Kept for compatibility but now starts the pattern scheduler
     function triggerLoopAudio(slot, time){
-      console.log("triggerLoopAudio called", { slot, isRunning, loopSlots: !!loopSlots[slot] });
-      if(!ctx || !loopSlots[slot]) {
-        console.log("triggerLoopAudio - no ctx or no loop");
-        return;
-      }
+      if(!ctx || !loopSlots[slot]) return;
       
-      // Start the pattern-based scheduler if not already running main sequencer
       if(!isRunning){
-        console.log("Starting loop scheduler (sequencer not running)");
         startLoopScheduler();
-      } else {
-        console.log("Sequencer is running, not starting loop scheduler");
       }
     }
     
@@ -1314,22 +1294,15 @@
     // Loop button click handlers
     loopBtns.forEach((btn, i) => {
       btn.addEventListener("click", async () => {
-        console.log("Loop button clicked", i, "loopSlots[i]:", loopSlots[i], "isRunning:", isRunning);
-        
-        // Ensure audio context is created and resumed
         ensureAudio();
         await resumeAudio();
         
         if(loopSlots[i]){
-          // If this slot has a recorded loop, play/stop/queue it
-          console.log("Slot has pattern, calling queueLoop");
           queueLoop(i);
         } else if(!isRunning){
-          // If sequencer not playing, arm for recording
           armLoopSlot(i);
           setStatus(`Loop ${i + 1} armed. Press Play to start recording.`);
         } else {
-          // If sequencer playing and slot is empty, arm it for recording
           armLoopSlot(i);
           setStatus(`Loop ${i + 1} armed. Recording starts at next bar 1.`);
         }
@@ -1343,6 +1316,201 @@
     });
 
     loopClearBtn.addEventListener("click", clearAllLoops);
+
+    // ---------- SHARE FUNCTIONALITY ----------
+    const shareModal = document.getElementById("shareModal");
+    const shareBtn = document.getElementById("shareBtn");
+    const loadShareBtn = document.getElementById("loadShareBtn");
+    const shareExportSection = document.getElementById("shareExportSection");
+    const shareImportSection = document.getElementById("shareImportSection");
+    const shareModalTitle = document.getElementById("shareModalTitle");
+    const shareName = document.getElementById("shareName");
+    const shareCode = document.getElementById("shareCode");
+    const copyCodeBtn = document.getElementById("copyCodeBtn");
+    const loadCode = document.getElementById("loadCode");
+    const loadCodeBtn = document.getElementById("loadCodeBtn");
+    const closeModalBtn = document.getElementById("closeModalBtn");
+    const loadedProjectInfo = document.getElementById("loadedProjectInfo");
+    const loadedProjectName = document.getElementById("loadedProjectName");
+    const loadedProjectDetails = document.getElementById("loadedProjectDetails");
+
+    function generateShareCode(){
+      const projectData = {
+        name: shareName.value || "Unnamed",
+        timestamp: Date.now(),
+        tempo: tempo(),
+        drums: tracks.map(tr => ({ key: tr.key, pattern: [...tr.pattern], vol: tr.vol })),
+        bass: { steps: bassState.steps.map(s => ({ note: s.note, oct: s.oct })) },
+        lead: { steps: leadState.steps.map(s => ({ note: s.note, oct: s.oct })) },
+        params: {
+          bass: { cut: +cutEl.value, res: +resEl.value, env: +envEl.value, dec: +bDecayEl.value, mix: +dMixEl.value, fb: +dFbEl.value },
+          lead: { cut: +lCutEl.value, res: +lResEl.value, env: +lEnvEl.value, gate: +lGateEl.value, mix: +lMixEl.value, fb: +lFbEl.value },
+          mixer: { dV: +mDrumVolEl.value, bV: +mBassVolEl.value, lV: +mLeadVolEl.value, dF: +mDrumLPFEl.value, bF: +mBassLPFEl.value, lF: +mLeadLPFEl.value }
+        }
+      };
+      
+      // Compress to base64
+      const json = JSON.stringify(projectData);
+      const code = btoa(encodeURIComponent(json));
+      return code;
+    }
+
+    function parseShareCode(code){
+      try {
+        const json = decodeURIComponent(atob(code.trim()));
+        return JSON.parse(json);
+      } catch(e) {
+        console.error("Failed to parse share code:", e);
+        return null;
+      }
+    }
+
+    function loadProjectFromData(data){
+      if(!data) return false;
+      
+      // Set tempo
+      if(data.tempo) tempoEl.value = data.tempo;
+      
+      // Load drum patterns
+      if(data.drums){
+        for(const drumData of data.drums){
+          const tr = tracks.find(t => t.key === drumData.key);
+          if(tr){
+            tr.pattern = [...drumData.pattern];
+            tr.vol = drumData.vol;
+          }
+        }
+        renderDrumGrid();
+      }
+      
+      // Load bass
+      if(data.bass && data.bass.steps){
+        bassState.steps = data.bass.steps.map(s => ({ note: s.note, oct: s.oct }));
+        renderSeqGrid(bassState, bassGridEl, "bass");
+      }
+      
+      // Load lead
+      if(data.lead && data.lead.steps){
+        leadState.steps = data.lead.steps.map(s => ({ note: s.note, oct: s.oct }));
+        renderSeqGrid(leadState, leadGridEl, "lead");
+      }
+      
+      // Load params
+      if(data.params){
+        if(data.params.bass){
+          cutEl.value = data.params.bass.cut || 0;
+          resEl.value = data.params.bass.res || 0;
+          envEl.value = data.params.bass.env || 0;
+          bDecayEl.value = data.params.bass.dec || 0.28;
+          dMixEl.value = data.params.bass.mix || 0;
+          dFbEl.value = data.params.bass.fb || 0;
+        }
+        if(data.params.lead){
+          lCutEl.value = data.params.lead.cut || 0;
+          lResEl.value = data.params.lead.res || 0;
+          lEnvEl.value = data.params.lead.env || 0;
+          lGateEl.value = data.params.lead.gate || 0.55;
+          lMixEl.value = data.params.lead.mix || 0;
+          lFbEl.value = data.params.lead.fb || 0;
+        }
+        if(data.params.mixer){
+          mDrumVolEl.value = data.params.mixer.dV || 0.8;
+          mBassVolEl.value = data.params.mixer.bV || 0.75;
+          mLeadVolEl.value = data.params.mixer.lV || 0.7;
+          mDrumLPFEl.value = data.params.mixer.dF || 1;
+          mBassLPFEl.value = data.params.mixer.bF || 1;
+          mLeadLPFEl.value = data.params.mixer.lF || 1;
+        }
+      }
+      
+      // Store as a loop so it can be played
+      const loopData = {
+        drums: data.drums,
+        bass: data.bass,
+        lead: data.lead,
+        params: data.params,
+        tempo: data.tempo
+      };
+      loopSlots[0] = loopData;
+      updateLoopUI();
+      
+      return true;
+    }
+
+    shareBtn.addEventListener("click", () => {
+      shareModalTitle.textContent = "Share Your Music";
+      shareExportSection.style.display = "block";
+      shareImportSection.style.display = "none";
+      shareCode.value = generateShareCode();
+      shareModal.style.display = "flex";
+    });
+
+    loadShareBtn.addEventListener("click", () => {
+      shareModalTitle.textContent = "Load a Project";
+      shareExportSection.style.display = "none";
+      shareImportSection.style.display = "block";
+      loadCode.value = "";
+      loadedProjectInfo.style.display = "none";
+      shareModal.style.display = "flex";
+    });
+
+    copyCodeBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(shareCode.value);
+        copyCodeBtn.textContent = "✓ Copied!";
+        setTimeout(() => { copyCodeBtn.textContent = "📋 Copy Code"; }, 2000);
+      } catch(e) {
+        shareCode.select();
+        document.execCommand("copy");
+        copyCodeBtn.textContent = "✓ Copied!";
+        setTimeout(() => { copyCodeBtn.textContent = "📋 Copy Code"; }, 2000);
+      }
+    });
+
+    loadCode.addEventListener("input", () => {
+      const data = parseShareCode(loadCode.value);
+      if(data){
+        loadedProjectInfo.style.display = "block";
+        loadedProjectName.textContent = "🎵 " + (data.name || "Unnamed Project");
+        const date = data.timestamp ? new Date(data.timestamp).toLocaleString() : "Unknown";
+        loadedProjectDetails.textContent = `Tempo: ${data.tempo || 120} BPM • Created: ${date}`;
+      } else {
+        loadedProjectInfo.style.display = "none";
+      }
+    });
+
+    loadCodeBtn.addEventListener("click", async () => {
+      const data = parseShareCode(loadCode.value);
+      if(!data){
+        alert("Invalid share code!");
+        return;
+      }
+      
+      await resumeAudio();
+      ensureSynths();
+      
+      if(loadProjectFromData(data)){
+        shareModal.style.display = "none";
+        setStatus(`Loaded: ${data.name || "Unnamed"}`);
+        
+        // Auto-play the loaded project
+        playingSlot = 0;
+        loopBarsPlayed = 1;
+        triggerLoopAudio(0, ctx.currentTime);
+        updateLoopUI();
+        setStatus(`Playing: ${data.name || "Unnamed"}`);
+      } else {
+        alert("Failed to load project!");
+      }
+    });
+
+    closeModalBtn.addEventListener("click", () => {
+      shareModal.style.display = "none";
+    });
+
+    shareModal.addEventListener("click", (e) => {
+      if(e.target === shareModal) shareModal.style.display = "none";
+    });
 
     // ---------- audio ----------
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
