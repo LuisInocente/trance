@@ -948,8 +948,9 @@
     const loopStopBtn = document.getElementById("loopStopBtn");
     const loopClearBtn = document.getElementById("loopClearBtn");
 
-    // Loop state: each slot can have a recorded audio buffer
-    const loopSlots = [null, null, null, null]; // AudioBuffer for each slot
+    // Loop state: each slot stores pattern data (like MIDI), not audio
+    // Pattern data: { drums: [...], bass: {...}, lead: {...}, params: {...} }
+    const loopSlots = [null, null, null, null];
     let armedSlot = -1; // Which slot is armed for recording (-1 = none)
     let recordingSlot = -1; // Which slot is currently recording (-1 = none)
     let recordingBarCount = 0; // Current bar being recorded (1-4)
@@ -957,11 +958,10 @@
     let pendingPlaySlot = -1; // Which slot is queued to play
     let loopBarsPlayed = 0; // How many bars the current loop has played (1-4)
     let currentBar = 0; // Current bar in the 4-bar cycle (1-4), increments at step 0
-    let loopRecorder = null; // MediaRecorder for loop recording
-    let loopChunks = [];
-    let loopSource = null; // Current playing loop source
-    let loopGain = null; // Gain node for loop crossfade
     let loopBarTimer = null; // Timer for tracking bars when playing independently
+    let loopScheduler = null; // Scheduler for independent loop playback
+    let loopStep = 0; // Current step in independent loop playback
+    let loopNextTime = 0; // Next scheduled time for independent loop
 
     function updateLoopUI(){
       loopBtns.forEach((btn, i) => {
@@ -1007,87 +1007,61 @@
       updateLoopUI();
     }
 
-    // Apply fade in/out to remove clicks - use exponential curve for smoother sound
-    function applyLoopFade(buf, fadeMs=40){
-      if(!buf || !ctx) return buf;
-      const sr = buf.sampleRate;
-      const fadeSamples = Math.max(1, Math.floor(sr * (fadeMs / 1000)));
-      for(let c = 0; c < buf.numberOfChannels; c++){
-        const data = buf.getChannelData(c);
-        const len = data.length;
-        const n = Math.min(fadeSamples, Math.floor(len / 2));
-        for(let i = 0; i < n; i++){
-          // Use exponential curve for smoother fade
-          const t = i / n;
-          const gain = t * t; // Exponential fade in
-          data[i] *= gain;
-          data[len - 1 - i] *= gain; // Exponential fade out
-        }
-      }
-      return buf;
-    }
-
     function startLoopRecording(slot){
-      if(!ctx || !recDest) return;
+      if(!ctx) return;
       
       recordingSlot = slot;
       recordingBarCount = 1; // Starting bar 1
       armedSlot = -1;
-      loopChunks = [];
       
-      try {
-        loopRecorder = new MediaRecorder(recDest.stream);
-        loopRecorder.ondataavailable = (e) => {
-          if(e.data && e.data.size) loopChunks.push(e.data);
-        };
-        
-        loopRecorder.onstop = async () => {
-          const slotToSave = recordingSlot;
-          try {
-            const blob = new Blob(loopChunks, { type: loopRecorder.mimeType || "audio/webm" });
-            const arr = await blob.arrayBuffer();
-            let buf = await new Promise((resolve, reject) => 
-              ctx.decodeAudioData(arr, resolve, reject)
-            );
-            
-            // Calculate exact 4-bar duration based on tempo
-            const bpm = tempo();
-            const beatsPerBar = 4;
-            const bars = 4;
-            const exactDuration = (60 / bpm) * beatsPerBar * bars;
-            const exactSamples = Math.floor(exactDuration * buf.sampleRate);
-            
-            // Trim to exact length if longer
-            if(buf.length > exactSamples){
-              const trimmed = ctx.createBuffer(buf.numberOfChannels, exactSamples, buf.sampleRate);
-              for(let c = 0; c < buf.numberOfChannels; c++){
-                trimmed.copyToChannel(buf.getChannelData(c).slice(0, exactSamples), c);
-              }
-              buf = trimmed;
-            }
-            
-            // Apply fade to remove clicks
-            loopSlots[slotToSave] = applyLoopFade(buf, 50);
-            setStatus(`Loop ${slotToSave + 1} recorded! ✅`);
-          } catch(err) {
-            console.error("Loop decode error:", err);
-            setStatus(`Loop ${slotToSave + 1} failed`);
-          } finally {
-            recordingSlot = -1;
-            recordingBarCount = 0;
-            updateLoopUI();
+      // Capture current pattern state as "MIDI" data
+      // We snapshot the patterns now - they represent what will play for 4 bars
+      const patternData = {
+        drums: tracks.map(tr => ({
+          key: tr.key,
+          pattern: [...tr.pattern],
+          vol: tr.vol
+        })),
+        bass: {
+          steps: bassState.steps.map(s => ({ note: s.note, oct: s.oct }))
+        },
+        lead: {
+          steps: leadState.steps.map(s => ({ note: s.note, oct: s.oct }))
+        },
+        params: {
+          bass: {
+            cut: +cutEl.value,
+            res: +resEl.value,
+            env: +envEl.value,
+            dec: +bDecayEl.value,
+            mix: +dMixEl.value,
+            fb: +dFbEl.value
+          },
+          lead: {
+            cut: +lCutEl.value,
+            res: +lResEl.value,
+            env: +lEnvEl.value,
+            gate: +lGateEl.value,
+            mix: +lMixEl.value,
+            fb: +lFbEl.value
+          },
+          mixer: {
+            dV: +mDrumVolEl.value,
+            bV: +mBassVolEl.value,
+            lV: +mLeadVolEl.value,
+            dF: +mDrumLPFEl.value,
+            bF: +mBassLPFEl.value,
+            lF: +mLeadLPFEl.value
           }
-        };
-        
-        loopRecorder.start();
-        updateLoopUI();
-        setStatus(`Recording Loop ${slot + 1}... (Bar 1/4)`);
-      } catch(err) {
-        console.error("Loop record error:", err);
-        recordingSlot = -1;
-        recordingBarCount = 0;
-        updateLoopUI();
-      }
+        },
+        tempo: tempo()
+      };
+      
+      // Store pattern data in slot (will be finalized when recording stops)
+      loopSlots[slot] = patternData;
+      
+      updateLoopUI();
+      setStatus(`Recording Loop ${slot + 1}... (Bar 1/4)`);
     }
 
     function incrementBarCount(){
@@ -1099,9 +1073,14 @@
     }
 
     function stopLoopRecording(){
-      if(loopRecorder && loopRecorder.state === "recording"){
-        try { loopRecorder.stop(); } catch(_){}
-      }
+      if(recordingSlot < 0) return;
+      
+      const slot = recordingSlot;
+      setStatus(`Loop ${slot + 1} recorded! ✅`);
+      
+      recordingSlot = -1;
+      recordingBarCount = 0;
+      updateLoopUI();
     }
 
     function queueLoop(slot){
@@ -1142,76 +1121,160 @@
       updateLoopUI();
     }
 
-    // Start timer to track bars for independent loop playback
-    function startLoopBarTimer(){
-      stopLoopBarTimer();
-      const barDuration = (60 / tempo()) * 4 * 1000; // 4 beats per bar in ms
+    // Start scheduler for independent loop playback (pattern-based, like MIDI)
+    function startLoopScheduler(){
+      stopLoopScheduler();
+      if(playingSlot < 0 || !loopSlots[playingSlot]) return;
       
-      loopBarTimer = setInterval(() => {
-        if(playingSlot < 0) {
-          stopLoopBarTimer();
-          return;
+      ensureSynths();
+      
+      // Apply the stored synth parameters from the loop
+      const pattern = loopSlots[playingSlot];
+      if(pattern && pattern.params){
+        // Apply bass params
+        if(pattern.params.bass && bassSynth){
+          bassSynth.setCutoff(pattern.params.bass.cut || 0);
+          bassSynth.setResonance(pattern.params.bass.res || 0);
+        }
+        // Apply lead params
+        if(pattern.params.lead && leadSynth){
+          leadSynth.setCutoff(pattern.params.lead.cut || 0);
+          leadSynth.setResonance(pattern.params.lead.res || 0);
+        }
+      }
+      
+      loopStep = 0;
+      loopNextTime = ctx.currentTime + 0.05;
+      
+      function scheduleLoopStep(){
+        if(playingSlot < 0) return;
+        
+        const pattern = loopSlots[playingSlot];
+        if(!pattern) return;
+        
+        const stepDur = sixteenthSec();
+        const lookAhead = 0.1;
+        
+        while(loopNextTime < ctx.currentTime + lookAhead){
+          // Play this step from pattern data
+          playLoopStep(pattern, loopStep, loopNextTime);
+          
+          // Advance step
+          loopStep++;
+          if(loopStep >= 16){
+            loopStep = 0;
+            // Completed one bar (16 steps)
+            loopBarsPlayed++;
+            if(loopBarsPlayed > 4){
+              loopBarsPlayed = 1;
+              // Check for pending loop switch
+              if(pendingPlaySlot >= 0){
+                playingSlot = pendingPlaySlot;
+                pendingPlaySlot = -1;
+                // Apply the new loop's synth parameters
+                const newPattern = loopSlots[playingSlot];
+                if(newPattern && newPattern.params){
+                  if(newPattern.params.bass && bassSynth){
+                    bassSynth.setCutoff(newPattern.params.bass.cut || 0);
+                    bassSynth.setResonance(newPattern.params.bass.res || 0);
+                  }
+                  if(newPattern.params.lead && leadSynth){
+                    leadSynth.setCutoff(newPattern.params.lead.cut || 0);
+                    leadSynth.setResonance(newPattern.params.lead.res || 0);
+                  }
+                }
+                setStatus(`Playing Loop ${playingSlot + 1}`);
+              }
+            }
+            updateLoopUI();
+          }
+          
+          loopNextTime += stepDur;
         }
         
-        // Check if we should switch to pending loop
-        if(loopBarsPlayed >= 4 && pendingPlaySlot >= 0){
-          playingSlot = pendingPlaySlot;
-          pendingPlaySlot = -1;
-          loopBarsPlayed = 1;
-          triggerLoopAudio(playingSlot, ctx.currentTime);
-          setStatus(`Playing Loop ${playingSlot + 1}`);
-        } else {
-          loopBarsPlayed++;
-          if(loopBarsPlayed > 4) loopBarsPlayed = 1;
+        loopScheduler = setTimeout(scheduleLoopStep, 25);
+      }
+      
+      scheduleLoopStep();
+    }
+    
+    function stopLoopScheduler(){
+      if(loopScheduler){
+        clearTimeout(loopScheduler);
+        loopScheduler = null;
+      }
+    }
+    
+    // Play a single step from pattern data
+    function playLoopStep(pattern, stepIndex, time){
+      if(!ctx || !pattern) return;
+      
+      // Play drums
+      for(const drumTrack of pattern.drums){
+        if(drumTrack.pattern[stepIndex]){
+          // Find the actual track to get the buffer
+          const tr = tracks.find(t => t.key === drumTrack.key);
+          if(tr && tr.buffer){
+            if(drumTrack.key === "kick") triggerSidechain(time);
+            
+            const g = ensureTrackGain(drumTrack.key);
+            setTrackGain(drumTrack.key, drumTrack.vol, true);
+            
+            if(tr.isSampler){
+              if(drumTrack.key === "sample1") playSampleNow(1, time);
+              else if(drumTrack.key === "sample2") playSampleNow(2, time);
+            } else {
+              playBufferAt(tr.buffer, time, g);
+            }
+          }
         }
-        updateLoopUI();
-      }, barDuration);
+      }
+      
+      // Play bass
+      const bassData = pattern.bass.steps[stepIndex];
+      if(bassData && bassData.note){
+        const freq = hzForNote(bassData.note, bassData.oct);
+        const p = pattern.params.bass;
+        bassSynth.trigger({
+          freq, time,
+          decay: p.dec || 0.28,
+          gate: 0.55,
+          envAmt: p.env || 0,
+          baseCut01: p.cut || 0,
+          release: 0.10,
+          vel: 1.0
+        });
+      }
+      
+      // Play lead
+      const leadData = pattern.lead.steps[stepIndex];
+      if(leadData && leadData.note){
+        const freq = hzForNote(leadData.note, leadData.oct + 1);
+        const p = pattern.params.lead;
+        leadSynth.trigger({
+          freq, time,
+          decay: 0.22,
+          gate: p.gate || 0.55,
+          envAmt: p.env || 0,
+          baseCut01: p.cut || 0,
+          release: 0.11,
+          vel: 1.0
+        });
+      }
+    }
+    
+    // Kept for compatibility but now starts the pattern scheduler
+    function triggerLoopAudio(slot, time){
+      if(!ctx || !loopSlots[slot]) return;
+      
+      // Start the pattern-based scheduler if not already running main sequencer
+      if(!isRunning){
+        startLoopScheduler();
+      }
     }
     
     function stopLoopBarTimer(){
-      if(loopBarTimer){
-        clearInterval(loopBarTimer);
-        loopBarTimer = null;
-      }
-    }
-
-    // Actually start playing a loop audio
-    function triggerLoopAudio(slot, time){
-      if(!ctx || !master || !loopSlots[slot]) return;
-      
-      const fadeTime = 0.03; // 30ms crossfade
-      const now = ctx.currentTime;
-      
-      // Fade out and stop old loop
-      if(loopSource && loopGain){
-        loopGain.gain.setValueAtTime(loopGain.gain.value, now);
-        loopGain.gain.linearRampToValueAtTime(0, now + fadeTime);
-        const oldSource = loopSource;
-        setTimeout(() => {
-          try { oldSource.stop(0); } catch(_){}
-        }, fadeTime * 1000 + 10);
-        loopSource = null;
-      }
-      
-      // Create gain node for new loop
-      loopGain = ctx.createGain();
-      loopGain.gain.setValueAtTime(0, now);
-      loopGain.gain.linearRampToValueAtTime(1, now + fadeTime);
-      loopGain.connect(master);
-      
-      // Create source and play with loop enabled
-      loopSource = ctx.createBufferSource();
-      loopSource.buffer = loopSlots[slot];
-      loopSource.loop = true;
-      loopSource.connect(loopGain);
-      
-      // Start immediately
-      try { loopSource.start(now); } catch(e){}
-      
-      // Start bar tracking timer if sequencer is not running
-      if(!isRunning){
-        startLoopBarTimer();
-      }
+      stopLoopScheduler();
     }
 
     function playLoop(slot){
@@ -1222,23 +1285,8 @@
       pendingPlaySlot = -1;
       playingSlot = -1;
       loopBarsPlayed = 0;
-      stopLoopBarTimer();
-      if(loopSource){
-        if(loopGain && ctx){
-          // Fade out before stopping
-          const now = ctx.currentTime;
-          loopGain.gain.setValueAtTime(loopGain.gain.value, now);
-          loopGain.gain.linearRampToValueAtTime(0, now + 0.03);
-          const oldSource = loopSource;
-          setTimeout(() => {
-            try { oldSource.stop(0); } catch(_){}
-          }, 40);
-        } else {
-          try { loopSource.stop(0); } catch(_){}
-        }
-        loopSource = null;
-      }
-      loopGain = null;
+      loopStep = 0;
+      stopLoopScheduler();
       updateLoopUI();
     }
 
@@ -2396,32 +2444,6 @@
           currentBar = 1;
           startLoopRecording(armedSlot);
         }
-        
-        // ---- LOOP PLAYBACK LOGIC ----
-        if(playingSlot >= 0){
-          // Loop is playing - check if we should switch at the end of 4 bars
-          if(loopBarsPlayed >= 4 && pendingPlaySlot >= 0){
-            // Switch to pending loop
-            playingSlot = pendingPlaySlot;
-            pendingPlaySlot = -1;
-            loopBarsPlayed = 1;
-            triggerLoopAudio(playingSlot, time);
-            setStatus(`Playing Loop ${playingSlot + 1}`);
-          } else {
-            // Increment bar counter (wrap from 4 to 1)
-            loopBarsPlayed++;
-            if(loopBarsPlayed > 4) loopBarsPlayed = 1;
-          }
-          updateLoopUI();
-        } else if(pendingPlaySlot >= 0){
-          // No loop playing but one is queued - start it
-          playingSlot = pendingPlaySlot;
-          pendingPlaySlot = -1;
-          loopBarsPlayed = 1;
-          triggerLoopAudio(playingSlot, time);
-          setStatus(`Playing Loop ${playingSlot + 1}`);
-          updateLoopUI();
-        }
       }
 
       for(const tr of tracks){
@@ -2531,18 +2553,14 @@
       // Stop any ongoing loop recording
       if(recordingSlot >= 0) stopLoopRecording();
       
-      // Stop loop audio and timer
-      stopLoopBarTimer();
-      if(loopSource){
-        try { loopSource.stop(0); } catch(_){}
-        loopSource = null;
-      }
-      loopGain = null;
+      // Stop loop scheduler
+      stopLoopScheduler();
       
       armedSlot = -1;
       pendingPlaySlot = -1;
       playingSlot = -1;
       loopBarsPlayed = 0;
+      loopStep = 0;
       currentBar = 0;
       updateLoopUI();
 
