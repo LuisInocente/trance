@@ -1008,6 +1008,7 @@
     }
 
     function startLoopRecording(slot){
+      console.log("startLoopRecording called", { slot, ctx: !!ctx });
       if(!ctx) return;
       
       recordingSlot = slot;
@@ -1057,6 +1058,8 @@
         tempo: tempo()
       };
       
+      console.log("Pattern data captured:", patternData);
+      
       // Store pattern data in slot (will be finalized when recording stops)
       loopSlots[slot] = patternData;
       
@@ -1073,9 +1076,11 @@
     }
 
     function stopLoopRecording(){
+      console.log("stopLoopRecording called", { recordingSlot, loopSlots: loopSlots.map(s => !!s) });
       if(recordingSlot < 0) return;
       
       const slot = recordingSlot;
+      console.log("Loop recorded in slot", slot, "pattern:", loopSlots[slot]);
       setStatus(`Loop ${slot + 1} recorded! ✅`);
       
       recordingSlot = -1;
@@ -1084,10 +1089,14 @@
     }
 
     function queueLoop(slot){
+      console.log("queueLoop called", { slot, loopSlots: loopSlots.map(s => !!s), playingSlot });
       // Ensure audio context is set up
       ensureAudio();
       
-      if(!ctx || !loopSlots[slot]) return;
+      if(!ctx || !loopSlots[slot]) {
+        console.log("queueLoop - no ctx or no loop in slot");
+        return;
+      }
       
       // If same loop is already playing, stop it
       if(playingSlot === slot){
@@ -1114,6 +1123,7 @@
       }
       
       // No loop playing - play immediately
+      console.log("Starting loop playback for slot", slot);
       playingSlot = slot;
       loopBarsPlayed = 1;
       triggerLoopAudio(slot, ctx.currentTime);
@@ -1123,13 +1133,19 @@
 
     // Start scheduler for independent loop playback (pattern-based, like MIDI)
     function startLoopScheduler(){
+      console.log("startLoopScheduler called", { playingSlot, pattern: loopSlots[playingSlot] });
       stopLoopScheduler();
-      if(playingSlot < 0 || !loopSlots[playingSlot]) return;
+      if(playingSlot < 0 || !loopSlots[playingSlot]) {
+        console.log("startLoopScheduler - no pattern to play");
+        return;
+      }
       
       ensureSynths();
+      console.log("Synths ensured", { bassSynth: !!bassSynth, leadSynth: !!leadSynth });
       
       // Apply the stored synth parameters from the loop
       const pattern = loopSlots[playingSlot];
+      console.log("Pattern data:", pattern);
       if(pattern && pattern.params){
         // Apply bass params
         if(pattern.params.bass && bassSynth){
@@ -1147,16 +1163,23 @@
       loopNextTime = ctx.currentTime + 0.05;
       
       function scheduleLoopStep(){
-        if(playingSlot < 0) return;
+        if(playingSlot < 0) {
+          console.log("scheduleLoopStep - playingSlot is -1, stopping");
+          return;
+        }
         
         const pattern = loopSlots[playingSlot];
-        if(!pattern) return;
+        if(!pattern) {
+          console.log("scheduleLoopStep - no pattern");
+          return;
+        }
         
         const stepDur = sixteenthSec();
         const lookAhead = 0.1;
         
         while(loopNextTime < ctx.currentTime + lookAhead){
           // Play this step from pattern data
+          console.log("Playing step", loopStep, "at", loopNextTime);
           playLoopStep(pattern, loopStep, loopNextTime);
           
           // Advance step
@@ -1165,6 +1188,7 @@
             loopStep = 0;
             // Completed one bar (16 steps)
             loopBarsPlayed++;
+            console.log("Bar completed, loopBarsPlayed:", loopBarsPlayed);
             if(loopBarsPlayed > 4){
               loopBarsPlayed = 1;
               // Check for pending loop switch
@@ -1195,6 +1219,7 @@
         loopScheduler = setTimeout(scheduleLoopStep, 25);
       }
       
+      console.log("Starting scheduleLoopStep");
       scheduleLoopStep();
     }
     
@@ -1207,13 +1232,17 @@
     
     // Play a single step from pattern data
     function playLoopStep(pattern, stepIndex, time){
-      if(!ctx || !pattern) return;
+      if(!ctx || !pattern) {
+        console.log("playLoopStep - no ctx or pattern");
+        return;
+      }
       
       // Play drums
       for(const drumTrack of pattern.drums){
         if(drumTrack.pattern[stepIndex]){
           // Find the actual track to get the buffer
           const tr = tracks.find(t => t.key === drumTrack.key);
+          console.log("Playing drum", drumTrack.key, "buffer:", !!tr?.buffer);
           if(tr && tr.buffer){
             if(drumTrack.key === "kick") triggerSidechain(time);
             
@@ -1233,6 +1262,7 @@
       // Play bass
       const bassData = pattern.bass.steps[stepIndex];
       if(bassData && bassData.note){
+        console.log("Playing bass note", bassData.note, bassData.oct);
         const freq = hzForNote(bassData.note, bassData.oct);
         const p = pattern.params.bass;
         bassSynth.trigger({
@@ -1249,6 +1279,7 @@
       // Play lead
       const leadData = pattern.lead.steps[stepIndex];
       if(leadData && leadData.note){
+        console.log("Playing lead note", leadData.note, leadData.oct);
         const freq = hzForNote(leadData.note, leadData.oct + 1);
         const p = pattern.params.lead;
         leadSynth.trigger({
@@ -1265,11 +1296,18 @@
     
     // Kept for compatibility but now starts the pattern scheduler
     function triggerLoopAudio(slot, time){
-      if(!ctx || !loopSlots[slot]) return;
+      console.log("triggerLoopAudio called", { slot, isRunning, loopSlots: !!loopSlots[slot] });
+      if(!ctx || !loopSlots[slot]) {
+        console.log("triggerLoopAudio - no ctx or no loop");
+        return;
+      }
       
       // Start the pattern-based scheduler if not already running main sequencer
       if(!isRunning){
+        console.log("Starting loop scheduler (sequencer not running)");
         startLoopScheduler();
+      } else {
+        console.log("Sequencer is running, not starting loop scheduler");
       }
     }
     
@@ -1304,12 +1342,15 @@
     // Loop button click handlers
     loopBtns.forEach((btn, i) => {
       btn.addEventListener("click", async () => {
+        console.log("Loop button clicked", i, "loopSlots[i]:", loopSlots[i], "isRunning:", isRunning);
+        
         // Ensure audio context is created and resumed
         ensureAudio();
         await resumeAudio();
         
         if(loopSlots[i]){
           // If this slot has a recorded loop, play/stop/queue it
+          console.log("Slot has pattern, calling queueLoop");
           queueLoop(i);
         } else if(!isRunning){
           // If sequencer not playing, arm for recording
