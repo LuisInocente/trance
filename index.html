@@ -1143,22 +1143,6 @@
       ensureSynths();
       console.log("Synths ensured", { bassSynth: !!bassSynth, leadSynth: !!leadSynth });
       
-      // Apply the stored synth parameters from the loop
-      const pattern = loopSlots[playingSlot];
-      console.log("Pattern data:", pattern);
-      if(pattern && pattern.params){
-        // Apply bass params
-        if(pattern.params.bass && bassSynth){
-          bassSynth.setCutoff(pattern.params.bass.cut || 0);
-          bassSynth.setResonance(pattern.params.bass.res || 0);
-        }
-        // Apply lead params
-        if(pattern.params.lead && leadSynth){
-          leadSynth.setCutoff(pattern.params.lead.cut || 0);
-          leadSynth.setResonance(pattern.params.lead.res || 0);
-        }
-      }
-      
       loopStep = 0;
       loopNextTime = ctx.currentTime + 0.05;
       
@@ -1195,18 +1179,6 @@
               if(pendingPlaySlot >= 0){
                 playingSlot = pendingPlaySlot;
                 pendingPlaySlot = -1;
-                // Apply the new loop's synth parameters
-                const newPattern = loopSlots[playingSlot];
-                if(newPattern && newPattern.params){
-                  if(newPattern.params.bass && bassSynth){
-                    bassSynth.setCutoff(newPattern.params.bass.cut || 0);
-                    bassSynth.setResonance(newPattern.params.bass.res || 0);
-                  }
-                  if(newPattern.params.lead && leadSynth){
-                    leadSynth.setCutoff(newPattern.params.lead.cut || 0);
-                    leadSynth.setResonance(newPattern.params.lead.res || 0);
-                  }
-                }
                 setStatus(`Playing Loop ${playingSlot + 1}`);
               }
             }
