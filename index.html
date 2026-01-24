@@ -1212,7 +1212,8 @@
       }
       
       loopStep = 0;
-      loopNextTime = ctx.currentTime + 0.02;
+      // Start with minimal delay to ensure first note isn't in the past
+      loopNextTime = ctx.currentTime + 0.005;
       var needsUIUpdate = false;
       var newStatusMsg = null;
       
@@ -1432,6 +1433,8 @@
 
     function generateShareCode(){
       // Compact format: much shorter code
+      // Encode octave: original is -1 to 2, store as 0-3
+      function encOct(o){ return (parseInt(o) || 0) + 1; }
       const d = {
         n: shareName.value || "?",
         t: tempo(),
@@ -1441,10 +1444,10 @@
           for(let i = 0; i < 16; i++) if(tr.pattern[i]) bits |= (1 << i);
           return bits.toString(16).padStart(4, '0');
         }).join(''),
-        // Bass: note letters + octave (e.g., "A0C1E0" or "-" for empty)
-        ba: bassState.steps.map(s => s.note ? s.note[0] + s.oct : '-').join(''),
+        // Bass: note letters + octave (e.g., "A1C2E1" or "--" for empty)
+        ba: bassState.steps.map(s => s.note ? s.note[0] + encOct(s.oct) : '--').join(''),
         // Lead: same format
-        le: leadState.steps.map(s => s.note ? s.note[0] + s.oct : '-').join(''),
+        le: leadState.steps.map(s => s.note ? s.note[0] + encOct(s.oct) : '--').join(''),
         // Params: rounded to 1 decimal
         p: [
           Math.round(+cutEl.value * 10) / 10,
@@ -1482,6 +1485,9 @@
           drumPatterns.push(pattern);
         }
         
+        // Decode octave: stored as 0-3, original is -1 to 2
+        function decOct(str){ return (parseInt(str) || 0) - 1; }
+        
         // Parse bass
         const bassSteps = [];
         for(let i = 0; i < 16; i++){
@@ -1490,7 +1496,7 @@
           if(ch === '-'){
             bassSteps.push({ note: null, oct: 0 });
           } else {
-            bassSteps.push({ note: ch, oct: parseInt(oct) || 0 });
+            bassSteps.push({ note: ch, oct: decOct(oct) });
           }
         }
         
@@ -1502,7 +1508,7 @@
           if(ch === '-'){
             leadSteps.push({ note: null, oct: 0 });
           } else {
-            leadSteps.push({ note: ch, oct: parseInt(oct) || 0 });
+            leadSteps.push({ note: ch, oct: decOct(oct) });
           }
         }
         
@@ -1701,6 +1707,9 @@
         return isFinite(v) ? Math.round(v * 100) / 100 : 0;
       }
       
+      // Store octave as 0-3 (original is -1 to 2, so add 1)
+      function encOct(o){ return (parseInt(o) || 0) + 1; }
+      
       return {
         t: tempo(),
         dr: tracks.map(function(tr){
@@ -1709,8 +1718,8 @@
           return bits.toString(16).padStart(4, '0');
         }).join(''),
         dv: tracks.map(function(tr){ return Math.round(tr.vol * 100) / 100; }),
-        ba: bassState.steps.map(function(s){ return s.note ? s.note[0] + s.oct : '--'; }).join(''),
-        le: leadState.steps.map(function(s){ return s.note ? s.note[0] + s.oct : '--'; }).join(''),
+        ba: bassState.steps.map(function(s){ return s.note ? s.note[0] + encOct(s.oct) : '--'; }).join(''),
+        le: leadState.steps.map(function(s){ return s.note ? s.note[0] + encOct(s.oct) : '--'; }).join(''),
         p: [
           getVal(cutEl),
           getVal(resEl),
@@ -1753,18 +1762,21 @@
       // Drum volumes
       const drumVols = d.dv || tracks.map(t => t.vol);
       
+      // Decode octave (stored as 0-3, original is -1 to 2)
+      function decOct(str){ return (parseInt(str) || 0) - 1; }
+      
       const bassSteps = [];
       for(let i = 0; i < 16; i++){
         const ch = d.ba ? d.ba[i * 2] : '-';
-        const oct = d.ba ? d.ba[i * 2 + 1] : '0';
-        bassSteps.push(ch === '-' ? { note: null, oct: 0 } : { note: ch, oct: parseInt(oct) || 0 });
+        const oct = d.ba ? d.ba[i * 2 + 1] : '1';
+        bassSteps.push(ch === '-' ? { note: null, oct: 0 } : { note: ch, oct: decOct(oct) });
       }
       
       const leadSteps = [];
       for(let i = 0; i < 16; i++){
         const ch = d.le ? d.le[i * 2] : '-';
-        const oct = d.le ? d.le[i * 2 + 1] : '0';
-        leadSteps.push(ch === '-' ? { note: null, oct: 0 } : { note: ch, oct: parseInt(oct) || 0 });
+        const oct = d.le ? d.le[i * 2 + 1] : '1';
+        leadSteps.push(ch === '-' ? { note: null, oct: 0 } : { note: ch, oct: decOct(oct) });
       }
       
       const p = d.p || [0,0,0,0.28,0,0,0,0.55];
@@ -1820,6 +1832,8 @@
       // Convert loop slots to compact format
       function slotToCompact(slot){
         if(!slot) return null;
+        // Encode octave: original is -1 to 2, store as 0-3
+        function encOct(o){ return (parseInt(o) || 0) + 1; }
         return {
           t: slot.tempo || tempo(),
           dr: slot.drums ? slot.drums.map(function(tr){
@@ -1828,8 +1842,8 @@
             return bits.toString(16).padStart(4, '0');
           }).join('') : '',
           dv: slot.drums ? slot.drums.map(function(tr){ return Math.round((tr.vol || 0.8) * 100) / 100; }) : [],
-          ba: slot.bass && slot.bass.steps ? slot.bass.steps.map(function(s){ return s.note ? s.note[0] + (s.oct || 0) : '--'; }).join('') : '',
-          le: slot.lead && slot.lead.steps ? slot.lead.steps.map(function(s){ return s.note ? s.note[0] + (s.oct || 0) : '--'; }).join('') : '',
+          ba: slot.bass && slot.bass.steps ? slot.bass.steps.map(function(s){ return s.note ? s.note[0] + encOct(s.oct) : '--'; }).join('') : '',
+          le: slot.lead && slot.lead.steps ? slot.lead.steps.map(function(s){ return s.note ? s.note[0] + encOct(s.oct) : '--'; }).join('') : '',
           p: slot.params ? [
             (slot.params.bass && isFinite(slot.params.bass.cut)) ? slot.params.bass.cut : 0,
             (slot.params.bass && isFinite(slot.params.bass.res)) ? slot.params.bass.res : 0,
@@ -1991,7 +2005,7 @@
       var currentSlotIndex = 0;
       var barsPlayed = 0;
       var step = 0;
-      var nextTime = ctx.currentTime + 0.02;
+      var nextTime = ctx.currentTime + 0.005;
       var hubTimer = null;
       var currentPattern = projectSlots[0];
       
@@ -2194,7 +2208,7 @@
       var currentSlotIndex = 0;
       var barsPlayed = 0;
       var step = 0;
-      var nextTime = ctx.currentTime + 0.05;
+      var nextTime = ctx.currentTime + 0.005;
       var hubTimer = null;
       
       function playCurrentSlotInAll(){
