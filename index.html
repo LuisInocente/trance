@@ -1825,7 +1825,8 @@
       const project = hubProjects[index];
       if(!project) return;
       
-      hubPlaying = false; // Stop any "play all"
+      hubPlaying = true;
+      hubPlayIndex = index;
       
       await resumeAudio();
       ensureSynths();
@@ -1835,20 +1836,105 @@
       
       loopSlots[0] = data;
       stopLoopPlayback();
-      playingSlot = 0;
-      loopBarsPlayed = 1;
-      startLoopScheduler();
-      updateLoopUI();
       
       hubModal.style.display = "none";
+      
+      // Show student name prominently
+      showStudentName(project.name);
+      
+      // Play 4 bars
+      let barsPlayed = 0;
+      let step = 0;
+      let nextTime = ctx.currentTime + 0.05;
+      
+      function scheduleProjectStep(){
+        if(!hubPlaying) {
+          hideStudentName();
+          return;
+        }
+        
+        const pattern = loopSlots[0];
+        if(!pattern) return;
+        
+        const stepDur = sixteenthSec();
+        
+        while(nextTime < ctx.currentTime + 0.1){
+          playLoopStep(pattern, step, nextTime);
+          
+          step++;
+          if(step >= 16){
+            step = 0;
+            barsPlayed++;
+            setStatus(`🎵 ${project.name} - Bar ${barsPlayed}/4`);
+            
+            if(barsPlayed >= 4){
+              hubPlaying = false;
+              hideStudentName();
+              setStatus(`✅ Finished: ${project.name}`);
+              return;
+            }
+          }
+          nextTime += stepDur;
+        }
+        
+        setTimeout(scheduleProjectStep, 25);
+      }
+      
       setStatus(`🎵 Playing: ${project.name}`);
+      scheduleProjectStep();
     };
+    
+    // Big student name display
+    function showStudentName(name){
+      let overlay = document.getElementById("studentNameOverlay");
+      if(!overlay){
+        overlay = document.createElement("div");
+        overlay.id = "studentNameOverlay";
+        overlay.style.cssText = `
+          position: fixed;
+          top: 50px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+          color: white;
+          padding: 16px 40px;
+          border-radius: 50px;
+          font-size: 28px;
+          font-weight: 900;
+          z-index: 1000;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+          animation: popIn 0.3s ease;
+        `;
+        document.body.appendChild(overlay);
+        
+        // Add animation style
+        if(!document.getElementById("studentNameStyle")){
+          const style = document.createElement("style");
+          style.id = "studentNameStyle";
+          style.textContent = `
+            @keyframes popIn {
+              0% { transform: translateX(-50%) scale(0.5); opacity: 0; }
+              100% { transform: translateX(-50%) scale(1); opacity: 1; }
+            }
+          `;
+          document.head.appendChild(style);
+        }
+      }
+      overlay.textContent = "🎵 " + name;
+      overlay.style.display = "block";
+    }
+    
+    function hideStudentName(){
+      const overlay = document.getElementById("studentNameOverlay");
+      if(overlay) overlay.style.display = "none";
+    }
     
     // Stop playback
     hubStopBtn.addEventListener("click", () => {
       hubPlaying = false;
       hubPlayIndex = -1;
       stopLoopPlayback();
+      hideStudentName();
       setStatus("Stopped");
     });
     
@@ -1870,6 +1956,7 @@
         hubPlaying = false;
         hubPlayIndex = -1;
         stopLoopPlayback();
+        hideStudentName();
         setStatus("🎉 Finished playing all!");
         return;
       }
@@ -1888,13 +1975,19 @@
       
       loopSlots[0] = data;
       
+      // Show student name prominently
+      showStudentName(project.name + ` (${hubPlayIndex + 1}/${hubProjects.length})`);
+      
       // Play 4 bars then move to next
       let barsPlayed = 0;
       let step = 0;
       let nextTime = ctx.currentTime + 0.05;
       
       function scheduleHubStep(){
-        if(!hubPlaying) return;
+        if(!hubPlaying) {
+          hideStudentName();
+          return;
+        }
         
         const pattern = loopSlots[0];
         if(!pattern) return;
@@ -3172,6 +3265,7 @@
 
     function masterStop(){
       isRunning = false;
+      hubPlaying = false; // Stop hub playback too
       if(timer) clearTimeout(timer);
       timer = null;
       if(rafId) cancelAnimationFrame(rafId);
@@ -3182,6 +3276,9 @@
       
       // Stop loop scheduler
       stopLoopScheduler();
+      
+      // Hide student name overlay
+      hideStudentName();
       
       armedSlot = -1;
       pendingPlaySlot = -1;
