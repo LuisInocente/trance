@@ -691,6 +691,7 @@
         <button class="loopControlBtn" id="loopClearBtn">Clear</button>
         <button class="loopControlBtn" id="shareBtn" style="background:#8b5cf6;color:#fff;border-color:#7c3aed;">Share</button>
         <button class="loopControlBtn" id="loadShareBtn" style="background:#3b82f6;color:#fff;border-color:#2563eb;">Load</button>
+        <button class="loopControlBtn" id="hubBtn" style="background:#22c55e;color:#fff;border-color:#16a34a;">🏫 Hub</button>
       </div>
     </div>
   </header>
@@ -721,6 +722,49 @@
       </div>
       
       <button id="closeModalBtn" style="margin-top:16px;padding:10px 20px;background:var(--border);color:var(--text);border:none;border-radius:8px;cursor:pointer;width:100%;">Close</button>
+    </div>
+  </div>
+
+  <!-- Hub Modal -->
+  <div id="hubModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:100;align-items:center;justify-content:center;">
+    <div style="background:var(--card);border-radius:16px;padding:24px;max-width:600px;width:95%;max-height:90vh;overflow-y:auto;">
+      <h2 style="margin:0 0 8px;font-size:20px;color:var(--text);">🏫 Classroom Hub</h2>
+      
+      <!-- Server URL Setting -->
+      <div style="background:#1e3a5f;border-radius:8px;padding:10px;margin-bottom:16px;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span style="font-size:11px;color:#93c5fd;white-space:nowrap;">Server:</span>
+          <input type="text" id="hubServerUrl" placeholder="https://yoursite.com/music-hub.php" style="flex:1;padding:8px;border-radius:6px;border:none;background:#0f172a;color:#fff;font-size:12px;">
+          <button id="hubSaveUrl" style="padding:8px 12px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;">Save</button>
+        </div>
+        <div id="hubConnectionStatus" style="font-size:10px;color:#93c5fd;margin-top:6px;">Enter your server URL above</div>
+      </div>
+      
+      <!-- Student Section -->
+      <div id="hubStudentSection" style="background:var(--bg);border-radius:12px;padding:16px;margin-bottom:16px;">
+        <h3 style="margin:0 0 12px;font-size:14px;color:#22c55e;">📝 Submit Your Music</h3>
+        <input type="text" id="hubStudentName" placeholder="Enter your name" style="width:100%;padding:12px;border-radius:8px;border:2px solid var(--border);background:var(--card);color:var(--text);font-size:16px;margin-bottom:12px;">
+        <button id="hubSubmitBtn" style="width:100%;padding:14px;background:#22c55e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:16px;">🎵 Submit to Hub</button>
+        <div id="hubSubmitStatus" style="margin-top:8px;font-size:12px;color:var(--muted);text-align:center;"></div>
+      </div>
+      
+      <!-- Teacher Section -->
+      <div id="hubTeacherSection" style="background:var(--bg);border-radius:12px;padding:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h3 style="margin:0;font-size:14px;color:#3b82f6;">🎧 Class Submissions (<span id="hubCount">0</span>)</h3>
+          <button id="hubRefreshBtn" style="padding:6px 12px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🔄 Refresh</button>
+        </div>
+        <div id="hubProjectList" style="max-height:300px;overflow-y:auto;">
+          <div style="color:var(--muted);text-align:center;padding:20px;font-size:13px;">Set server URL and click Refresh</div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;">
+          <button id="hubPlayAllBtn" style="flex:1;padding:10px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">▶ Play All</button>
+          <button id="hubStopBtn" style="padding:10px 16px;background:#f59e0b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;">⏹ Stop</button>
+          <button id="hubClearAllBtn" style="padding:10px 16px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;">🗑</button>
+        </div>
+      </div>
+      
+      <button id="closeHubBtn" style="margin-top:16px;padding:10px 20px;background:var(--border);color:var(--text);border:none;border-radius:8px;cursor:pointer;width:100%;">Close</button>
     </div>
   </div>
 
@@ -1060,28 +1104,16 @@
         },
         params: {
           bass: {
-            cut: +cutEl.value,
-            res: +resEl.value,
-            env: +envEl.value,
-            dec: +bDecayEl.value,
-            mix: +dMixEl.value,
-            fb: +dFbEl.value
+            cut: parseFloat(cutEl.value) || 0,
+            res: parseFloat(resEl.value) || 0,
+            env: parseFloat(envEl.value) || 0,
+            dec: parseFloat(bDecayEl.value) || 0.28
           },
           lead: {
-            cut: +lCutEl.value,
-            res: +lResEl.value,
-            env: +lEnvEl.value,
-            gate: +lGateEl.value,
-            mix: +lMixEl.value,
-            fb: +lFbEl.value
-          },
-          mixer: {
-            dV: +mDrumVolEl.value,
-            bV: +mBassVolEl.value,
-            lV: +mLeadVolEl.value,
-            dF: +mDrumLPFEl.value,
-            bF: +mBassLPFEl.value,
-            lF: +mLeadLPFEl.value
+            cut: parseFloat(lCutEl.value) || 0,
+            res: parseFloat(lResEl.value) || 0,
+            env: parseFloat(lEnvEl.value) || 0,
+            gate: parseFloat(lGateEl.value) || 0.55
           }
         },
         tempo: tempo()
@@ -1203,55 +1235,63 @@
       if(!ctx || !pattern) return;
       
       // Play drums
-      for(const drumTrack of pattern.drums){
-        if(drumTrack.pattern[stepIndex]){
-          const tr = tracks.find(t => t.key === drumTrack.key);
-          if(tr && tr.buffer){
-            if(drumTrack.key === "kick") triggerSidechain(time);
-            
-            const g = ensureTrackGain(drumTrack.key);
-            setTrackGain(drumTrack.key, drumTrack.vol, true);
-            
-            if(tr.isSampler){
-              if(drumTrack.key === "sample1") playSampleNow(1, time);
-              else if(drumTrack.key === "sample2") playSampleNow(2, time);
-            } else {
-              playBufferAt(tr.buffer, time, g);
+      if(pattern.drums){
+        for(const drumTrack of pattern.drums){
+          if(drumTrack.pattern && drumTrack.pattern[stepIndex]){
+            const tr = tracks.find(t => t.key === drumTrack.key);
+            if(tr && tr.buffer){
+              if(drumTrack.key === "kick") triggerSidechain(time);
+              
+              const g = ensureTrackGain(drumTrack.key);
+              setTrackGain(drumTrack.key, drumTrack.vol || 0.8, true);
+              
+              if(tr.isSampler){
+                if(drumTrack.key === "sample1") playSampleNow(1, time);
+                else if(drumTrack.key === "sample2") playSampleNow(2, time);
+              } else {
+                playBufferAt(tr.buffer, time, g);
+              }
             }
           }
         }
       }
       
+      // Get params with defaults
+      const bp = pattern.params?.bass || {};
+      const lp = pattern.params?.lead || {};
+      
       // Play bass
-      const bassData = pattern.bass.steps[stepIndex];
-      if(bassData && bassData.note){
-        const freq = hzForNote(bassData.note, bassData.oct);
-        const p = pattern.params.bass;
-        bassSynth.trigger({
-          freq, time,
-          decay: p.dec || 0.28,
-          gate: 0.55,
-          envAmt: p.env || 0,
-          baseCut01: p.cut || 0,
-          release: 0.10,
-          vel: 1.0
-        });
+      if(pattern.bass?.steps){
+        const bassData = pattern.bass.steps[stepIndex];
+        if(bassData && bassData.note){
+          const freq = hzForNote(bassData.note, bassData.oct || 0);
+          bassSynth.trigger({
+            freq, time,
+            decay: bp.dec ?? 0.28,
+            gate: 0.55,
+            envAmt: bp.env ?? 0,
+            baseCut01: bp.cut ?? 0,
+            release: 0.10,
+            vel: 1.0
+          });
+        }
       }
       
       // Play lead
-      const leadData = pattern.lead.steps[stepIndex];
-      if(leadData && leadData.note){
-        const freq = hzForNote(leadData.note, leadData.oct + 1);
-        const p = pattern.params.lead;
-        leadSynth.trigger({
-          freq, time,
-          decay: 0.22,
-          gate: p.gate || 0.55,
-          envAmt: p.env || 0,
-          baseCut01: p.cut || 0,
-          release: 0.11,
-          vel: 1.0
-        });
+      if(pattern.lead?.steps){
+        const leadData = pattern.lead.steps[stepIndex];
+        if(leadData && leadData.note){
+          const freq = hzForNote(leadData.note, (leadData.oct || 0) + 1);
+          leadSynth.trigger({
+            freq, time,
+            decay: 0.22,
+            gate: lp.gate ?? 0.55,
+            envAmt: lp.env ?? 0,
+            baseCut01: lp.cut ?? 0,
+            release: 0.11,
+            vel: 1.0
+          });
+        }
       }
     }
     
@@ -1335,30 +1375,97 @@
     const loadedProjectDetails = document.getElementById("loadedProjectDetails");
 
     function generateShareCode(){
-      const projectData = {
-        name: shareName.value || "Unnamed",
-        timestamp: Date.now(),
-        tempo: tempo(),
-        drums: tracks.map(tr => ({ key: tr.key, pattern: [...tr.pattern], vol: tr.vol })),
-        bass: { steps: bassState.steps.map(s => ({ note: s.note, oct: s.oct })) },
-        lead: { steps: leadState.steps.map(s => ({ note: s.note, oct: s.oct })) },
-        params: {
-          bass: { cut: +cutEl.value, res: +resEl.value, env: +envEl.value, dec: +bDecayEl.value, mix: +dMixEl.value, fb: +dFbEl.value },
-          lead: { cut: +lCutEl.value, res: +lResEl.value, env: +lEnvEl.value, gate: +lGateEl.value, mix: +lMixEl.value, fb: +lFbEl.value },
-          mixer: { dV: +mDrumVolEl.value, bV: +mBassVolEl.value, lV: +mLeadVolEl.value, dF: +mDrumLPFEl.value, bF: +mBassLPFEl.value, lF: +mLeadLPFEl.value }
-        }
+      // Compact format: much shorter code
+      const d = {
+        n: shareName.value || "?",
+        t: tempo(),
+        // Drums: convert each pattern to hex (16 bits = 4 hex chars)
+        dr: tracks.map(tr => {
+          let bits = 0;
+          for(let i = 0; i < 16; i++) if(tr.pattern[i]) bits |= (1 << i);
+          return bits.toString(16).padStart(4, '0');
+        }).join(''),
+        // Bass: note letters + octave (e.g., "A0C1E0" or "-" for empty)
+        ba: bassState.steps.map(s => s.note ? s.note[0] + s.oct : '-').join(''),
+        // Lead: same format
+        le: leadState.steps.map(s => s.note ? s.note[0] + s.oct : '-').join(''),
+        // Params: rounded to 1 decimal
+        p: [
+          Math.round(+cutEl.value * 10) / 10,
+          Math.round(+resEl.value * 10) / 10,
+          Math.round(+envEl.value * 10) / 10,
+          Math.round(+bDecayEl.value * 100) / 100,
+          Math.round(+lCutEl.value * 10) / 10,
+          Math.round(+lResEl.value * 10) / 10,
+          Math.round(+lEnvEl.value * 10) / 10,
+          Math.round(+lGateEl.value * 100) / 100
+        ]
       };
       
-      // Compress to base64
-      const json = JSON.stringify(projectData);
-      const code = btoa(encodeURIComponent(json));
-      return code;
+      const json = JSON.stringify(d);
+      return btoa(json).replace(/=/g, '');
     }
 
     function parseShareCode(code){
       try {
-        const json = decodeURIComponent(atob(code.trim()));
-        return JSON.parse(json);
+        // Add back padding if needed
+        while(code.length % 4 !== 0) code += '=';
+        const json = atob(code.trim());
+        const d = JSON.parse(json);
+        
+        // Convert back to full format
+        const noteMap = { 'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E', 'F': 'F', 'G': 'G' };
+        
+        // Parse drums from hex
+        const drumPatterns = [];
+        for(let i = 0; i < 8; i++){
+          const hex = d.dr.substr(i * 4, 4);
+          const bits = parseInt(hex, 16);
+          const pattern = [];
+          for(let j = 0; j < 16; j++) pattern.push(!!(bits & (1 << j)));
+          drumPatterns.push(pattern);
+        }
+        
+        // Parse bass
+        const bassSteps = [];
+        for(let i = 0; i < 16; i++){
+          const ch = d.ba[i * 2];
+          const oct = d.ba[i * 2 + 1];
+          if(ch === '-'){
+            bassSteps.push({ note: null, oct: 0 });
+          } else {
+            bassSteps.push({ note: ch, oct: parseInt(oct) || 0 });
+          }
+        }
+        
+        // Parse lead
+        const leadSteps = [];
+        for(let i = 0; i < 16; i++){
+          const ch = d.le[i * 2];
+          const oct = d.le[i * 2 + 1];
+          if(ch === '-'){
+            leadSteps.push({ note: null, oct: 0 });
+          } else {
+            leadSteps.push({ note: ch, oct: parseInt(oct) || 0 });
+          }
+        }
+        
+        return {
+          name: d.n,
+          tempo: d.t,
+          drums: tracks.map((tr, i) => ({
+            key: tr.key,
+            pattern: drumPatterns[i] || new Array(16).fill(false),
+            vol: tr.vol
+          })),
+          bass: { steps: bassSteps },
+          lead: { steps: leadSteps },
+          params: {
+            bass: { cut: d.p[0], res: d.p[1], env: d.p[2], dec: d.p[3], mix: 0, fb: 0 },
+            lead: { cut: d.p[4], res: d.p[5], env: d.p[6], gate: d.p[7], mix: 0, fb: 0 },
+            mixer: { dV: 0.8, bV: 0.75, lV: 0.7, dF: 1, bF: 1, lF: 1 }
+          }
+        };
       } catch(e) {
         console.error("Failed to parse share code:", e);
         return null;
@@ -1375,9 +1482,9 @@
       if(data.drums){
         for(const drumData of data.drums){
           const tr = tracks.find(t => t.key === drumData.key);
-          if(tr){
+          if(tr && drumData.pattern){
             tr.pattern = [...drumData.pattern];
-            tr.vol = drumData.vol;
+            if(drumData.vol !== undefined) tr.vol = drumData.vol;
           }
         }
         renderDrumGrid();
@@ -1385,53 +1492,40 @@
       
       // Load bass
       if(data.bass && data.bass.steps){
-        bassState.steps = data.bass.steps.map(s => ({ note: s.note, oct: s.oct }));
+        bassState.steps = data.bass.steps.map(s => ({ note: s.note, oct: s.oct || 0 }));
         renderSeqGrid(bassState, bassGridEl, "bass");
       }
       
       // Load lead
       if(data.lead && data.lead.steps){
-        leadState.steps = data.lead.steps.map(s => ({ note: s.note, oct: s.oct }));
+        leadState.steps = data.lead.steps.map(s => ({ note: s.note, oct: s.oct || 0 }));
         renderSeqGrid(leadState, leadGridEl, "lead");
       }
       
       // Load params
       if(data.params){
         if(data.params.bass){
-          cutEl.value = data.params.bass.cut || 0;
-          resEl.value = data.params.bass.res || 0;
-          envEl.value = data.params.bass.env || 0;
-          bDecayEl.value = data.params.bass.dec || 0.28;
-          dMixEl.value = data.params.bass.mix || 0;
-          dFbEl.value = data.params.bass.fb || 0;
+          if(data.params.bass.cut !== undefined) cutEl.value = data.params.bass.cut;
+          if(data.params.bass.res !== undefined) resEl.value = data.params.bass.res;
+          if(data.params.bass.env !== undefined) envEl.value = data.params.bass.env;
+          if(data.params.bass.dec !== undefined) bDecayEl.value = data.params.bass.dec;
         }
         if(data.params.lead){
-          lCutEl.value = data.params.lead.cut || 0;
-          lResEl.value = data.params.lead.res || 0;
-          lEnvEl.value = data.params.lead.env || 0;
-          lGateEl.value = data.params.lead.gate || 0.55;
-          lMixEl.value = data.params.lead.mix || 0;
-          lFbEl.value = data.params.lead.fb || 0;
-        }
-        if(data.params.mixer){
-          mDrumVolEl.value = data.params.mixer.dV || 0.8;
-          mBassVolEl.value = data.params.mixer.bV || 0.75;
-          mLeadVolEl.value = data.params.mixer.lV || 0.7;
-          mDrumLPFEl.value = data.params.mixer.dF || 1;
-          mBassLPFEl.value = data.params.mixer.bF || 1;
-          mLeadLPFEl.value = data.params.mixer.lF || 1;
+          if(data.params.lead.cut !== undefined) lCutEl.value = data.params.lead.cut;
+          if(data.params.lead.res !== undefined) lResEl.value = data.params.lead.res;
+          if(data.params.lead.env !== undefined) lEnvEl.value = data.params.lead.env;
+          if(data.params.lead.gate !== undefined) lGateEl.value = data.params.lead.gate;
         }
       }
       
       // Store as a loop so it can be played
-      const loopData = {
+      loopSlots[0] = {
         drums: data.drums,
         bass: data.bass,
         lead: data.lead,
         params: data.params,
         tempo: data.tempo
       };
-      loopSlots[0] = loopData;
       updateLoopUI();
       
       return true;
@@ -1472,8 +1566,7 @@
       if(data){
         loadedProjectInfo.style.display = "block";
         loadedProjectName.textContent = "🎵 " + (data.name || "Unnamed Project");
-        const date = data.timestamp ? new Date(data.timestamp).toLocaleString() : "Unknown";
-        loadedProjectDetails.textContent = `Tempo: ${data.tempo || 120} BPM • Created: ${date}`;
+        loadedProjectDetails.textContent = `Tempo: ${data.tempo || 120} BPM`;
       } else {
         loadedProjectInfo.style.display = "none";
       }
@@ -1510,6 +1603,359 @@
 
     shareModal.addEventListener("click", (e) => {
       if(e.target === shareModal) shareModal.style.display = "none";
+    });
+
+    // ---------- CLASSROOM HUB ----------
+    const hubModal = document.getElementById("hubModal");
+    const hubBtn = document.getElementById("hubBtn");
+    const hubServerUrl = document.getElementById("hubServerUrl");
+    const hubSaveUrl = document.getElementById("hubSaveUrl");
+    const hubConnectionStatus = document.getElementById("hubConnectionStatus");
+    const hubStudentName = document.getElementById("hubStudentName");
+    const hubSubmitBtn = document.getElementById("hubSubmitBtn");
+    const hubSubmitStatus = document.getElementById("hubSubmitStatus");
+    const hubRefreshBtn = document.getElementById("hubRefreshBtn");
+    const hubProjectList = document.getElementById("hubProjectList");
+    const hubCount = document.getElementById("hubCount");
+    const hubPlayAllBtn = document.getElementById("hubPlayAllBtn");
+    const hubStopBtn = document.getElementById("hubStopBtn");
+    const hubClearAllBtn = document.getElementById("hubClearAllBtn");
+    const closeHubBtn = document.getElementById("closeHubBtn");
+    
+    let hubProjects = [];
+    let hubPlayIndex = -1;
+    let hubPlaying = false;
+    
+    // Load saved server URL
+    const savedHubUrl = localStorage.getItem("musicHubServerUrl") || "";
+    hubServerUrl.value = savedHubUrl;
+    
+    // Save server URL
+    hubSaveUrl.addEventListener("click", () => {
+      const url = hubServerUrl.value.trim();
+      localStorage.setItem("musicHubServerUrl", url);
+      hubConnectionStatus.textContent = "✅ URL saved! Click Refresh to test.";
+      hubConnectionStatus.style.color = "#4ade80";
+    });
+    
+    // Generate compact project data
+    function getProjectData(){
+      return {
+        t: tempo(),
+        dr: tracks.map(tr => {
+          let bits = 0;
+          for(let i = 0; i < 16; i++) if(tr.pattern[i]) bits |= (1 << i);
+          return bits.toString(16).padStart(4, '0');
+        }).join(''),
+        ba: bassState.steps.map(s => s.note ? s.note[0] + s.oct : '--').join(''),
+        le: leadState.steps.map(s => s.note ? s.note[0] + s.oct : '--').join(''),
+        p: [
+          Math.round(parseFloat(cutEl.value) * 10) / 10,
+          Math.round(parseFloat(resEl.value) * 10) / 10,
+          Math.round(parseFloat(envEl.value) * 10) / 10,
+          Math.round(parseFloat(bDecayEl.value) * 100) / 100,
+          Math.round(parseFloat(lCutEl.value) * 10) / 10,
+          Math.round(parseFloat(lResEl.value) * 10) / 10,
+          Math.round(parseFloat(lEnvEl.value) * 10) / 10,
+          Math.round(parseFloat(lGateEl.value) * 100) / 100
+        ]
+      };
+    }
+    
+    // Parse compact project data
+    function parseProjectData(d){
+      if(!d) return null;
+      
+      const drumPatterns = [];
+      for(let i = 0; i < 8; i++){
+        const hex = d.dr ? d.dr.substr(i * 4, 4) : '0000';
+        const bits = parseInt(hex, 16) || 0;
+        const pattern = [];
+        for(let j = 0; j < 16; j++) pattern.push(!!(bits & (1 << j)));
+        drumPatterns.push(pattern);
+      }
+      
+      const bassSteps = [];
+      for(let i = 0; i < 16; i++){
+        const ch = d.ba ? d.ba[i * 2] : '-';
+        const oct = d.ba ? d.ba[i * 2 + 1] : '0';
+        bassSteps.push(ch === '-' ? { note: null, oct: 0 } : { note: ch, oct: parseInt(oct) || 0 });
+      }
+      
+      const leadSteps = [];
+      for(let i = 0; i < 16; i++){
+        const ch = d.le ? d.le[i * 2] : '-';
+        const oct = d.le ? d.le[i * 2 + 1] : '0';
+        leadSteps.push(ch === '-' ? { note: null, oct: 0 } : { note: ch, oct: parseInt(oct) || 0 });
+      }
+      
+      const p = d.p || [0,0,0,0.28,0,0,0,0.55];
+      
+      return {
+        tempo: d.t || 120,
+        drums: tracks.map((tr, i) => ({
+          key: tr.key,
+          pattern: drumPatterns[i] || new Array(16).fill(false),
+          vol: tr.vol
+        })),
+        bass: { steps: bassSteps },
+        lead: { steps: leadSteps },
+        params: {
+          bass: { cut: p[0], res: p[1], env: p[2], dec: p[3] },
+          lead: { cut: p[4], res: p[5], env: p[6], gate: p[7] }
+        }
+      };
+    }
+    
+    // Submit to server
+    hubSubmitBtn.addEventListener("click", async () => {
+      const url = hubServerUrl.value.trim();
+      const name = hubStudentName.value.trim();
+      
+      if(!url){
+        hubSubmitStatus.textContent = "❌ Set server URL first!";
+        hubSubmitStatus.style.color = "#f87171";
+        return;
+      }
+      
+      if(!name){
+        hubSubmitStatus.textContent = "❌ Enter your name!";
+        hubSubmitStatus.style.color = "#f87171";
+        return;
+      }
+      
+      hubSubmitStatus.textContent = "⏳ Submitting...";
+      hubSubmitStatus.style.color = "#fbbf24";
+      
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'submit',
+            name: name,
+            data: getProjectData()
+          })
+        });
+        
+        const result = await res.json();
+        
+        if(result.success){
+          hubSubmitStatus.textContent = `✅ "${name}" submitted!`;
+          hubSubmitStatus.style.color = "#4ade80";
+          localStorage.setItem("musicHubStudentName", name);
+        } else {
+          hubSubmitStatus.textContent = `❌ ${result.error || 'Failed'}`;
+          hubSubmitStatus.style.color = "#f87171";
+        }
+      } catch(e){
+        hubSubmitStatus.textContent = `❌ Connection error`;
+        hubSubmitStatus.style.color = "#f87171";
+      }
+    });
+    
+    // Load saved student name
+    hubStudentName.value = localStorage.getItem("musicHubStudentName") || "";
+    
+    // Load submissions from server
+    async function loadHubSubmissions(){
+      const url = hubServerUrl.value.trim();
+      
+      if(!url){
+        hubProjectList.innerHTML = '<div style="color:#f87171;text-align:center;padding:20px;">Set server URL first</div>';
+        hubConnectionStatus.textContent = "❌ No server URL set";
+        hubConnectionStatus.style.color = "#f87171";
+        return;
+      }
+      
+      hubProjectList.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">⏳ Loading...</div>';
+      
+      try {
+        const res = await fetch(url);
+        const result = await res.json();
+        
+        if(result.success){
+          hubProjects = result.submissions || [];
+          hubConnectionStatus.textContent = `✅ Connected`;
+          hubConnectionStatus.style.color = "#4ade80";
+          renderHubProjects();
+        } else {
+          hubProjectList.innerHTML = `<div style="color:#f87171;text-align:center;padding:20px;">Error: ${result.error}</div>`;
+        }
+      } catch(e){
+        hubConnectionStatus.textContent = `❌ Connection failed`;
+        hubConnectionStatus.style.color = "#f87171";
+        hubProjectList.innerHTML = '<div style="color:#f87171;text-align:center;padding:20px;">Cannot connect to server</div>';
+      }
+    }
+    
+    function escapeHtml(str){
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+    
+    function renderHubProjects(){
+      hubCount.textContent = hubProjects.length;
+      
+      if(hubProjects.length === 0){
+        hubProjectList.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">No submissions yet</div>';
+        return;
+      }
+      
+      // Sort by time (newest first)
+      const sorted = [...hubProjects].sort((a, b) => (b.time || 0) - (a.time || 0));
+      
+      hubProjectList.innerHTML = sorted.map((s, i) => {
+        const origIndex = hubProjects.indexOf(s);
+        const time = s.time ? new Date(s.time).toLocaleTimeString() : '';
+        return `
+          <div style="display:flex;align-items:center;gap:8px;padding:10px;background:var(--card);border-radius:8px;margin-bottom:6px;" id="hubItem${origIndex}">
+            <span style="font-size:20px;">🎵</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:bold;color:var(--text);overflow:hidden;text-overflow:ellipsis;">${escapeHtml(s.name)}</div>
+              <div style="font-size:10px;color:var(--muted);">${time}</div>
+            </div>
+            <button onclick="playHubProject(${origIndex})" style="padding:8px 16px;background:#22c55e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;">▶</button>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    // Play a specific hub project
+    window.playHubProject = async function(index){
+      const project = hubProjects[index];
+      if(!project) return;
+      
+      hubPlaying = false; // Stop any "play all"
+      
+      await resumeAudio();
+      ensureSynths();
+      
+      const data = parseProjectData(project.data);
+      if(!data) return;
+      
+      loopSlots[0] = data;
+      stopLoopPlayback();
+      playingSlot = 0;
+      loopBarsPlayed = 1;
+      startLoopScheduler();
+      updateLoopUI();
+      
+      hubModal.style.display = "none";
+      setStatus(`🎵 Playing: ${project.name}`);
+    };
+    
+    // Stop playback
+    hubStopBtn.addEventListener("click", () => {
+      hubPlaying = false;
+      hubPlayIndex = -1;
+      stopLoopPlayback();
+      setStatus("Stopped");
+    });
+    
+    // Play all projects in sequence
+    hubPlayAllBtn.addEventListener("click", async () => {
+      if(hubProjects.length === 0){
+        alert("No submissions to play!");
+        return;
+      }
+      
+      hubPlaying = true;
+      hubPlayIndex = 0;
+      hubModal.style.display = "none";
+      playNextHubProject();
+    });
+    
+    async function playNextHubProject(){
+      if(!hubPlaying || hubPlayIndex >= hubProjects.length){
+        hubPlaying = false;
+        hubPlayIndex = -1;
+        stopLoopPlayback();
+        setStatus("🎉 Finished playing all!");
+        return;
+      }
+      
+      const project = hubProjects[hubPlayIndex];
+      
+      await resumeAudio();
+      ensureSynths();
+      
+      const data = parseProjectData(project.data);
+      if(!data){
+        hubPlayIndex++;
+        playNextHubProject();
+        return;
+      }
+      
+      loopSlots[0] = data;
+      
+      // Play 4 bars then move to next
+      let barsPlayed = 0;
+      let step = 0;
+      let nextTime = ctx.currentTime + 0.05;
+      
+      function scheduleHubStep(){
+        if(!hubPlaying) return;
+        
+        const pattern = loopSlots[0];
+        if(!pattern) return;
+        
+        const stepDur = sixteenthSec();
+        
+        while(nextTime < ctx.currentTime + 0.1){
+          playLoopStep(pattern, step, nextTime);
+          
+          step++;
+          if(step >= 16){
+            step = 0;
+            barsPlayed++;
+            setStatus(`🎵 ${project.name} (${hubPlayIndex + 1}/${hubProjects.length}) - Bar ${barsPlayed}/4`);
+            
+            if(barsPlayed >= 4){
+              hubPlayIndex++;
+              setTimeout(playNextHubProject, 300);
+              return;
+            }
+          }
+          nextTime += stepDur;
+        }
+        
+        setTimeout(scheduleHubStep, 25);
+      }
+      
+      setStatus(`🎵 ${project.name} (${hubPlayIndex + 1}/${hubProjects.length})`);
+      scheduleHubStep();
+    }
+    
+    // Clear all submissions
+    hubClearAllBtn.addEventListener("click", async () => {
+      if(!confirm("Clear ALL submissions?")) return;
+      
+      const url = hubServerUrl.value.trim();
+      if(!url) return;
+      
+      try {
+        await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'clear' })
+        });
+        loadHubSubmissions();
+      } catch(e){}
+    });
+    
+    hubRefreshBtn.addEventListener("click", loadHubSubmissions);
+    
+    hubBtn.addEventListener("click", () => {
+      hubModal.style.display = "flex";
+      if(hubServerUrl.value.trim()) loadHubSubmissions();
+    });
+    
+    closeHubBtn.addEventListener("click", () => {
+      hubModal.style.display = "none";
+    });
+    
+    hubModal.addEventListener("click", (e) => {
+      if(e.target === hubModal) hubModal.style.display = "none";
     });
 
     // ---------- audio ----------
