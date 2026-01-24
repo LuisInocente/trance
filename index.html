@@ -1124,9 +1124,9 @@
             lF: parseFloat(mLeadLPFEl.value) || 1
           },
           mutes: {
-            drum: mDrumMuteBtn.classList.contains("active") ? 1 : 0,
-            bass: mBassMuteBtn.classList.contains("active") ? 1 : 0,
-            lead: mLeadMuteBtn.classList.contains("active") ? 1 : 0
+            drum: mute.drums ? 1 : 0,
+            bass: mute.bass ? 1 : 0,
+            lead: mute.lead ? 1 : 0
           }
         },
         tempo: tempo()
@@ -1700,9 +1700,9 @@
           Math.round(parseFloat(mLeadLPFEl.value) * 100) / 100
         ],
         mt: [
-          mDrumMuteBtn.classList.contains("active") ? 1 : 0,
-          mBassMuteBtn.classList.contains("active") ? 1 : 0,
-          mLeadMuteBtn.classList.contains("active") ? 1 : 0
+          mute.drums ? 1 : 0,
+          mute.bass ? 1 : 0,
+          mute.lead ? 1 : 0
         ]
       };
     }
@@ -1819,9 +1819,9 @@
             slot.params.mixer.lF || 1
           ] : [0.8,0.75,0.7,1,1,1],
           mt: slot.params && slot.params.mutes ? [
-            slot.params.mutes.drum || 0,
-            slot.params.mutes.bass || 0,
-            slot.params.mutes.lead || 0
+            slot.params.mutes.drum ? 1 : 0,
+            slot.params.mutes.bass ? 1 : 0,
+            slot.params.mutes.lead ? 1 : 0
           ] : [0,0,0]
         };
       }
@@ -2026,6 +2026,7 @@
       const m = (data.params && data.params.mixer) || {};
       const mt = (data.params && data.params.mutes) || {};
       
+      // Update slider values
       if(isFinite(m.dV)) mDrumVolEl.value = m.dV;
       if(isFinite(m.bV)) mBassVolEl.value = m.bV;
       if(isFinite(m.lV)) mLeadVolEl.value = m.lV;
@@ -2033,15 +2034,21 @@
       if(isFinite(m.bF)) mBassLPFEl.value = m.bF;
       if(isFinite(m.lF)) mLeadLPFEl.value = m.lF;
       
-      // Apply mutes
-      if(mt.drum) mDrumMuteBtn.classList.add("active");
-      else mDrumMuteBtn.classList.remove("active");
-      if(mt.bass) mBassMuteBtn.classList.add("active");
-      else mBassMuteBtn.classList.remove("active");
-      if(mt.lead) mLeadMuteBtn.classList.add("active");
-      else mLeadMuteBtn.classList.remove("active");
+      // Update mute object (this is what applyMixerNow uses)
+      mute.drums = !!mt.drum;
+      mute.bass = !!mt.bass;
+      mute.lead = !!mt.lead;
       
-      applyMixerNow(true);
+      // Update mute button UI
+      mDrumMuteBtn.classList.toggle("on", mute.drums);
+      mDrumMuteBtn.textContent = mute.drums ? "Muted" : "Mute";
+      mBassMuteBtn.classList.toggle("on", mute.bass);
+      mBassMuteBtn.textContent = mute.bass ? "Muted" : "Mute";
+      mLeadMuteBtn.classList.toggle("on", mute.lead);
+      mLeadMuteBtn.textContent = mute.lead ? "Muted" : "Mute";
+      
+      // Apply to audio nodes
+      if(ctx) applyMixerNow(true);
     }
     
     // Big student name display
@@ -2353,7 +2360,7 @@
     }
 
     function applyMixerNow(instant=false){
-      if(!ctx) return;
+      if(!ctx || !drumGain || !bassGain || !leadGain) return;
       const t = ctx.currentTime;
       const tau = instant ? 0.001 : 0.02;
 
@@ -2365,13 +2372,13 @@
       bassGain.gain.setTargetAtTime(bassVol, t, tau);
       leadGain.gain.setTargetAtTime(leadVol, t, tau);
 
-      drumLPF.frequency.setTargetAtTime(cutoffFromLPFFader(mDrumLPFEl.value), t, tau);
-      bassLPF.frequency.setTargetAtTime(cutoffFromLPFFader(mBassLPFEl.value), t, tau);
-      leadLPF.frequency.setTargetAtTime(cutoffFromLPFFader(mLeadLPFEl.value), t, tau);
+      if(drumLPF) drumLPF.frequency.setTargetAtTime(cutoffFromLPFFader(mDrumLPFEl.value), t, tau);
+      if(bassLPF) bassLPF.frequency.setTargetAtTime(cutoffFromLPFFader(mBassLPFEl.value), t, tau);
+      if(leadLPF) leadLPF.frequency.setTargetAtTime(cutoffFromLPFFader(mLeadLPFEl.value), t, tau);
 
-      drumLPF.Q.setTargetAtTime(0.55, t, tau);
-      bassLPF.Q.setTargetAtTime(0.60, t, tau);
-      leadLPF.Q.setTargetAtTime(0.55, t, tau);
+      if(drumLPF) drumLPF.Q.setTargetAtTime(0.55, t, tau);
+      if(bassLPF) bassLPF.Q.setTargetAtTime(0.60, t, tau);
+      if(leadLPF) leadLPF.Q.setTargetAtTime(0.55, t, tau);
     }
 
     function hookMixer(){
