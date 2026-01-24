@@ -1214,16 +1214,16 @@
       loopStep = 0;
       // Start with minimal delay to ensure first note isn't in the past
       loopNextTime = ctx.currentTime + 0.005;
-      var needsUIUpdate = false;
-      var newStatusMsg = null;
       
       function scheduleLoopStep(){
         if(playingSlot < 0) return;
         
         var stepDur = sixteenthSec();
         var lookAhead = 0.1;
-        needsUIUpdate = false;
-        newStatusMsg = null;
+        var needsUIUpdate = false;
+        var newStatusMsg = null;
+        var switchTime = null;
+        var newPattern = null;
         
         while(loopNextTime < ctx.currentTime + lookAhead){
           // Get current pattern each iteration (in case of switch)
@@ -1242,13 +1242,10 @@
               loopBarsPlayed = 1;
               // Check for pending loop switch
               if(pendingPlaySlot >= 0){
+                switchTime = loopNextTime;
                 playingSlot = pendingPlaySlot;
                 pendingPlaySlot = -1;
-                // Apply new loop's mixer settings
-                var newPattern = loopSlots[playingSlot];
-                if(newPattern) {
-                  applyProjectMixer(newPattern);
-                }
+                newPattern = loopSlots[playingSlot];
                 newStatusMsg = "Playing Loop " + (playingSlot + 1);
               }
             }
@@ -1257,9 +1254,18 @@
           loopNextTime += stepDur;
         }
         
-        // Do UI updates AFTER audio scheduling is done
-        if(needsUIUpdate) updateLoopUI();
-        if(newStatusMsg) setStatus(newStatusMsg);
+        // Apply new loop's mixer at the exact switch time
+        if(newPattern && switchTime) {
+          applyProjectMixer(newPattern, switchTime);
+        }
+        
+        // Defer UI updates to next animation frame
+        if(needsUIUpdate || newStatusMsg) {
+          requestAnimationFrame(function(){
+            if(needsUIUpdate) updateLoopUI();
+            if(newStatusMsg) setStatus(newStatusMsg);
+          });
+        }
         
         loopScheduler = setTimeout(scheduleLoopStep, 20);
       }
@@ -2023,6 +2029,8 @@
         var stepDur = sixteenthSec();
         var statusMsg = null;
         var finished = false;
+        var switchTime = null;
+        var nextPattern = null;
         
         while(nextTime < ctx.currentTime + 0.1){
           playLoopStep(currentPattern, step, nextTime);
@@ -2043,22 +2051,32 @@
               }
               
               // Switch to next slot without resetting timing
-              currentPattern = projectSlots[currentSlotIndex];
+              switchTime = nextTime;
+              nextPattern = projectSlots[currentSlotIndex];
+              currentPattern = nextPattern;
               loopSlots[0] = currentPattern;
-              applyProjectMixer(currentPattern);
               statusMsg = project.name + " - Loop " + (currentSlotIndex + 1) + "/" + projectSlots.length;
             }
           }
           nextTime += stepDur;
         }
         
-        // UI updates after audio scheduling
-        if(statusMsg) setStatus(statusMsg);
+        // Apply mixer at exact switch time
+        if(nextPattern && switchTime){
+          applyProjectMixer(nextPattern, switchTime);
+        }
+        
+        // Defer UI update
+        if(statusMsg){
+          requestAnimationFrame(function(){ setStatus(statusMsg); });
+        }
         
         if(finished){
           hubPlaying = false;
-          hideStudentName();
-          setStatus("Finished: " + project.name);
+          requestAnimationFrame(function(){
+            hideStudentName();
+            setStatus("Finished: " + project.name);
+          });
           if(hubTimer) clearTimeout(hubTimer);
           return;
         }
@@ -2070,13 +2088,13 @@
     };
     
     // Apply mixer settings from project data
-    function applyProjectMixer(data){
+    function applyProjectMixer(data, scheduleTime){
       if(!data) return;
       
       const m = (data.params && data.params.mixer) || {};
       const mt = (data.params && data.params.mutes) || {};
       
-      // Update slider values
+      // Update slider values (UI only, no audio)
       if(isFinite(m.dV)) mDrumVolEl.value = m.dV;
       if(isFinite(m.bV)) mBassVolEl.value = m.bV;
       if(isFinite(m.lV)) mLeadVolEl.value = m.lV;
@@ -2084,7 +2102,7 @@
       if(isFinite(m.bF)) mBassLPFEl.value = m.bF;
       if(isFinite(m.lF)) mLeadLPFEl.value = m.lF;
       
-      // Update mute object (this is what applyMixerNow uses)
+      // Update mute object
       mute.drums = !!mt.drum;
       mute.bass = !!mt.bass;
       mute.lead = !!mt.lead;
@@ -2097,8 +2115,23 @@
       mLeadMuteBtn.classList.toggle("on", mute.lead);
       mLeadMuteBtn.textContent = mute.lead ? "Muted" : "Mute";
       
-      // Apply to audio nodes
-      if(ctx) applyMixerNow(true);
+      // Apply to audio nodes - schedule if time provided, otherwise instant
+      if(ctx && drumGain && bassGain && leadGain){
+        var t = scheduleTime || ctx.currentTime;
+        var tau = 0.003;
+        
+        var drumVol = mute.drums ? 0 : volFromFader(mDrumVolEl.value);
+        var bassVol = mute.bass ? 0 : volFromFader(mBassVolEl.value);
+        var leadVol = mute.lead ? 0 : volFromFader(mLeadVolEl.value);
+        
+        drumGain.gain.setTargetAtTime(drumVol, t, tau);
+        bassGain.gain.setTargetAtTime(bassVol, t, tau);
+        leadGain.gain.setTargetAtTime(leadVol, t, tau);
+        
+        if(drumLPF) drumLPF.frequency.setTargetAtTime(cutoffFromLPFFader(mDrumLPFEl.value), t, tau);
+        if(bassLPF) bassLPF.frequency.setTargetAtTime(cutoffFromLPFFader(mBassLPFEl.value), t, tau);
+        if(leadLPF) leadLPF.frequency.setTargetAtTime(cutoffFromLPFFader(mLeadLPFEl.value), t, tau);
+      }
     }
     
     // Big student name display
@@ -2204,94 +2237,83 @@
       
       showStudentName(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ")");
       
-      // Play through all slots for this project
+      // Play through all slots with continuous timing
       var currentSlotIndex = 0;
       var barsPlayed = 0;
       var step = 0;
       var nextTime = ctx.currentTime + 0.005;
       var hubTimer = null;
+      var totalLoops = projectSlots.length;
+      var currentPattern = projectSlots[0];
       
-      function playCurrentSlotInAll(){
+      loopSlots[0] = currentPattern;
+      applyProjectMixer(currentPattern);
+      
+      function scheduleAllSlots(){
         if(!hubPlaying){
           hideStudentName();
+          if(hubTimer) clearTimeout(hubTimer);
           return;
         }
         
-        if(currentSlotIndex >= projectSlots.length){
-          // Move to next project
-          hubPlayIndex++;
-          setTimeout(playNextHubProject, 200);
-          return;
-        }
+        var stepDur = sixteenthSec();
+        var statusMsg = null;
+        var switchToNextProject = false;
+        var switchTime = null;
+        var nextPattern = null;
         
-        var currentPattern = projectSlots[currentSlotIndex];
-        loopSlots[0] = currentPattern;
-        applyProjectMixer(currentPattern);
-        
-        barsPlayed = 0;
-        step = 0;
-        nextTime = ctx.currentTime + 0.02;
-        
-        var totalLoops = projectSlots.length;
-        setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops);
-        
-        function scheduleSlotStepInAll(){
-          if(!hubPlaying){
-            hideStudentName();
-            if(hubTimer) clearTimeout(hubTimer);
-            return;
-          }
+        while(nextTime < ctx.currentTime + 0.1){
+          playLoopStep(currentPattern, step, nextTime);
           
-          var stepDur = sixteenthSec();
-          var statusMsg = null;
-          var switchToNext = false;
-          
-          while(nextTime < ctx.currentTime + 0.1){
-            playLoopStep(currentPattern, step, nextTime);
+          step++;
+          if(step >= 16){
+            step = 0;
+            barsPlayed++;
+            statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops + " - Bar " + barsPlayed + "/4";
             
-            step++;
-            if(step >= 16){
-              step = 0;
-              barsPlayed++;
-              statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops + " - Bar " + barsPlayed + "/4";
+            if(barsPlayed >= 4){
+              barsPlayed = 0;
+              currentSlotIndex++;
               
-              if(barsPlayed >= 4){
-                barsPlayed = 0;
-                currentSlotIndex++;
-                
-                if(currentSlotIndex >= projectSlots.length){
-                  // All slots done, move to next project
-                  switchToNext = true;
-                  break;
-                }
-                
-                // Switch to next slot seamlessly
-                currentPattern = projectSlots[currentSlotIndex];
-                loopSlots[0] = currentPattern;
-                applyProjectMixer(currentPattern);
-                statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops;
+              if(currentSlotIndex >= projectSlots.length){
+                switchToNextProject = true;
+                break;
               }
+              
+              // Switch to next slot seamlessly
+              switchTime = nextTime;
+              nextPattern = projectSlots[currentSlotIndex];
+              currentPattern = nextPattern;
+              loopSlots[0] = currentPattern;
+              statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops;
             }
-            nextTime += stepDur;
           }
-          
-          // UI update after audio scheduling
-          if(statusMsg) setStatus(statusMsg);
-          
-          if(switchToNext){
-            hubPlayIndex++;
-            if(hubTimer) clearTimeout(hubTimer);
-            setTimeout(playNextHubProject, 200);
-            return;
-          }
-          
-          hubTimer = setTimeout(scheduleSlotStepInAll, 20);
+          nextTime += stepDur;
         }
         
-        scheduleSlotStepInAll();
+        // Apply mixer at exact switch time
+        if(nextPattern && switchTime){
+          applyProjectMixer(nextPattern, switchTime);
+        }
+        
+        // Defer UI update
+        if(statusMsg){
+          requestAnimationFrame(function(){ setStatus(statusMsg); });
+        }
+        
+        if(switchToNextProject){
+          hubPlayIndex++;
+          if(hubTimer) clearTimeout(hubTimer);
+          // Small delay between students for name display
+          setTimeout(playNextHubProject, 150);
+          return;
+        }
+        
+        hubTimer = setTimeout(scheduleAllSlots, 20);
       }
       
-      playCurrentSlotInAll();
+      setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop 1/" + totalLoops);
+      scheduleAllSlots();
     }
     
     // Clear all submissions
@@ -3489,9 +3511,13 @@
       
       // Deferred UI update for recording
       if(pendingRecordingUI !== null){
-        updateLoopUI();
-        setStatus("Recording Loop " + (recordingSlot + 1) + "... (Bar " + pendingRecordingUI + "/4)");
+        var barNum = pendingRecordingUI;
+        var slotNum = recordingSlot;
         pendingRecordingUI = null;
+        requestAnimationFrame(function(){
+          updateLoopUI();
+          setStatus("Recording Loop " + (slotNum + 1) + "... (Bar " + barNum + "/4)");
+        });
       }
       
       timer = setTimeout(scheduler, LOOKAHEAD_MS);
