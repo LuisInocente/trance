@@ -1213,42 +1213,52 @@
       
       loopStep = 0;
       loopNextTime = ctx.currentTime + 0.02;
+      var needsUIUpdate = false;
+      var newStatusMsg = null;
       
       function scheduleLoopStep(){
         if(playingSlot < 0) return;
         
-        var pattern = loopSlots[playingSlot];
-        if(!pattern) return;
-        
         var stepDur = sixteenthSec();
         var lookAhead = 0.1;
+        needsUIUpdate = false;
+        newStatusMsg = null;
         
         while(loopNextTime < ctx.currentTime + lookAhead){
-          playLoopStep(pattern, loopStep, loopNextTime);
+          // Get current pattern each iteration (in case of switch)
+          var currentPattern = loopSlots[playingSlot];
+          if(!currentPattern) return;
+          
+          playLoopStep(currentPattern, loopStep, loopNextTime);
           
           loopStep++;
           if(loopStep >= 16){
             loopStep = 0;
             loopBarsPlayed++;
+            needsUIUpdate = true;
+            
             if(loopBarsPlayed > 4){
               loopBarsPlayed = 1;
               // Check for pending loop switch
               if(pendingPlaySlot >= 0){
                 playingSlot = pendingPlaySlot;
                 pendingPlaySlot = -1;
-                // Apply new loop's mixer settings immediately
+                // Apply new loop's mixer settings
                 var newPattern = loopSlots[playingSlot];
                 if(newPattern) {
                   applyProjectMixer(newPattern);
                 }
-                setStatus("Playing Loop " + (playingSlot + 1));
+                newStatusMsg = "Playing Loop " + (playingSlot + 1);
               }
             }
-            updateLoopUI();
           }
           
           loopNextTime += stepDur;
         }
+        
+        // Do UI updates AFTER audio scheduling is done
+        if(needsUIUpdate) updateLoopUI();
+        if(newStatusMsg) setStatus(newStatusMsg);
         
         loopScheduler = setTimeout(scheduleLoopStep, 20);
       }
@@ -1977,66 +1987,72 @@
       hubModal.style.display = "none";
       showStudentName(project.name);
       
-      // Play through all slots
+      // Play through all slots with continuous timing
       var currentSlotIndex = 0;
       var barsPlayed = 0;
       var step = 0;
-      var nextTime = ctx.currentTime + 0.05;
+      var nextTime = ctx.currentTime + 0.02;
       var hubTimer = null;
+      var currentPattern = projectSlots[0];
       
-      function playCurrentSlot(){
-        if(!hubPlaying || currentSlotIndex >= projectSlots.length){
-          hubPlaying = false;
+      applyProjectMixer(currentPattern);
+      loopSlots[0] = currentPattern;
+      setStatus(project.name + " - Loop 1/" + projectSlots.length);
+      
+      function scheduleSlotStep(){
+        if(!hubPlaying){
           hideStudentName();
-          setStatus("Finished: " + project.name);
+          if(hubTimer) clearTimeout(hubTimer);
           return;
         }
         
-        var currentPattern = projectSlots[currentSlotIndex];
-        loopSlots[0] = currentPattern;
-        applyProjectMixer(currentPattern);
+        var stepDur = sixteenthSec();
+        var statusMsg = null;
+        var finished = false;
         
-        barsPlayed = 0;
-        step = 0;
-        nextTime = ctx.currentTime + 0.02;
-        
-        setStatus(project.name + " - Loop " + (currentSlotIndex + 1) + "/" + projectSlots.length);
-        
-        function scheduleSlotStep(){
-          if(!hubPlaying){
-            hideStudentName();
-            if(hubTimer) clearTimeout(hubTimer);
-            return;
-          }
+        while(nextTime < ctx.currentTime + 0.1){
+          playLoopStep(currentPattern, step, nextTime);
           
-          var stepDur = sixteenthSec();
-          
-          while(nextTime < ctx.currentTime + 0.1){
-            playLoopStep(currentPattern, step, nextTime);
+          step++;
+          if(step >= 16){
+            step = 0;
+            barsPlayed++;
+            statusMsg = project.name + " - Loop " + (currentSlotIndex + 1) + "/" + projectSlots.length + " - Bar " + barsPlayed + "/4";
             
-            step++;
-            if(step >= 16){
-              step = 0;
-              barsPlayed++;
-              setStatus(project.name + " - Loop " + (currentSlotIndex + 1) + "/" + projectSlots.length + " - Bar " + barsPlayed + "/4");
+            if(barsPlayed >= 4){
+              barsPlayed = 0;
+              currentSlotIndex++;
               
-              if(barsPlayed >= 4){
-                currentSlotIndex++;
-                if(hubTimer) clearTimeout(hubTimer);
-                setTimeout(playCurrentSlot, 100);
-                return;
+              if(currentSlotIndex >= projectSlots.length){
+                finished = true;
+                break;
               }
+              
+              // Switch to next slot without resetting timing
+              currentPattern = projectSlots[currentSlotIndex];
+              loopSlots[0] = currentPattern;
+              applyProjectMixer(currentPattern);
+              statusMsg = project.name + " - Loop " + (currentSlotIndex + 1) + "/" + projectSlots.length;
             }
-            nextTime += stepDur;
           }
-          
-          hubTimer = setTimeout(scheduleSlotStep, 20);
+          nextTime += stepDur;
         }
         
-        scheduleSlotStep();
+        // UI updates after audio scheduling
+        if(statusMsg) setStatus(statusMsg);
+        
+        if(finished){
+          hubPlaying = false;
+          hideStudentName();
+          setStatus("Finished: " + project.name);
+          if(hubTimer) clearTimeout(hubTimer);
+          return;
+        }
+        
+        hubTimer = setTimeout(scheduleSlotStep, 20);
       }
       
-      playCurrentSlot();
+      scheduleSlotStep();
     };
     
     // Apply mixer settings from project data
@@ -2190,7 +2206,7 @@
         if(currentSlotIndex >= projectSlots.length){
           // Move to next project
           hubPlayIndex++;
-          setTimeout(playNextHubProject, 300);
+          setTimeout(playNextHubProject, 200);
           return;
         }
         
@@ -2213,6 +2229,8 @@
           }
           
           var stepDur = sixteenthSec();
+          var statusMsg = null;
+          var switchToNext = false;
           
           while(nextTime < ctx.currentTime + 0.1){
             playLoopStep(currentPattern, step, nextTime);
@@ -2221,16 +2239,36 @@
             if(step >= 16){
               step = 0;
               barsPlayed++;
-              setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops + " - Bar " + barsPlayed + "/4");
+              statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops + " - Bar " + barsPlayed + "/4";
               
               if(barsPlayed >= 4){
+                barsPlayed = 0;
                 currentSlotIndex++;
-                if(hubTimer) clearTimeout(hubTimer);
-                setTimeout(playCurrentSlotInAll, 100);
-                return;
+                
+                if(currentSlotIndex >= projectSlots.length){
+                  // All slots done, move to next project
+                  switchToNext = true;
+                  break;
+                }
+                
+                // Switch to next slot seamlessly
+                currentPattern = projectSlots[currentSlotIndex];
+                loopSlots[0] = currentPattern;
+                applyProjectMixer(currentPattern);
+                statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops;
               }
             }
             nextTime += stepDur;
+          }
+          
+          // UI update after audio scheduling
+          if(statusMsg) setStatus(statusMsg);
+          
+          if(switchToNext){
+            hubPlayIndex++;
+            if(hubTimer) clearTimeout(hubTimer);
+            setTimeout(playNextHubProject, 200);
+            return;
           }
           
           hubTimer = setTimeout(scheduleSlotStepInAll, 20);
@@ -3373,6 +3411,8 @@
       applyLeadParams(false);
     }
 
+    var pendingRecordingUI = null;
+    
     function scheduleStep(stepIndex, time){
       // 16 steps = 1 bar of 16th notes
       // At step 0, we're starting a new bar
@@ -3391,8 +3431,8 @@
           } else {
             // Still recording, increment bar count
             recordingBarCount++;
-            updateLoopUI();
-            setStatus(`Recording Loop ${recordingSlot + 1}... (Bar ${recordingBarCount}/4)`);
+            // Defer UI update
+            pendingRecordingUI = recordingBarCount;
           }
         } else if(armedSlot >= 0){
           // Start recording at bar 1
@@ -3432,6 +3472,14 @@
         drumStep = (drumStep + 1) % 16;
         nextTime += stepDur;
       }
+      
+      // Deferred UI update for recording
+      if(pendingRecordingUI !== null){
+        updateLoopUI();
+        setStatus("Recording Loop " + (recordingSlot + 1) + "... (Bar " + pendingRecordingUI + "/4)");
+        pendingRecordingUI = null;
+      }
+      
       timer = setTimeout(scheduler, LOOKAHEAD_MS);
     }
 
