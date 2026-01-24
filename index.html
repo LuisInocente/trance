@@ -689,41 +689,10 @@
         </div>
         <button class="loopControlBtn stop" id="loopStopBtn">Stop</button>
         <button class="loopControlBtn" id="loopClearBtn">Clear</button>
-        <button class="loopControlBtn" id="shareBtn" style="background:#8b5cf6;color:#fff;border-color:#7c3aed;">Share</button>
-        <button class="loopControlBtn" id="loadShareBtn" style="background:#3b82f6;color:#fff;border-color:#2563eb;">Load</button>
         <button class="loopControlBtn" id="hubBtn" style="background:#22c55e;color:#fff;border-color:#16a34a;">Hub</button>
       </div>
     </div>
   </header>
-
-  <!-- Share Modal -->
-  <div id="shareModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:100;align-items:center;justify-content:center;">
-    <div style="background:var(--card);border-radius:16px;padding:24px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto;">
-      <h2 style="margin:0 0 16px;font-size:18px;color:var(--text);" id="shareModalTitle">Share Your Music</h2>
-      
-      <div id="shareExportSection">
-        <label style="display:block;margin-bottom:8px;color:var(--muted);font-size:12px;">Your Name:</label>
-        <input type="text" id="shareName" placeholder="Enter your name" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);margin-bottom:16px;font-size:14px;">
-        
-        <label style="display:block;margin-bottom:8px;color:var(--muted);font-size:12px;">Share Code:</label>
-        <textarea id="shareCode" readonly style="width:100%;height:80px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:monospace;font-size:11px;resize:none;"></textarea>
-        <button id="copyCodeBtn" style="margin-top:8px;padding:10px 20px;background:#22c55e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">Copy Code</button>
-      </div>
-      
-      <div id="shareImportSection" style="display:none;">
-        <label style="display:block;margin-bottom:8px;color:var(--muted);font-size:12px;">Paste a Share Code:</label>
-        <textarea id="loadCode" placeholder="Paste code here..." style="width:100%;height:80px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:monospace;font-size:11px;resize:none;"></textarea>
-        <button id="loadCodeBtn" style="margin-top:8px;padding:10px 20px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">▶ Load & Play</button>
-        
-        <div id="loadedProjectInfo" style="display:none;margin-top:16px;padding:12px;background:var(--bg);border-radius:8px;">
-          <div style="font-weight:bold;color:var(--text);" id="loadedProjectName"></div>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px;" id="loadedProjectDetails"></div>
-        </div>
-      </div>
-      
-      <button id="closeModalBtn" style="margin-top:16px;padding:10px 20px;background:var(--border);color:var(--text);border:none;border-radius:8px;cursor:pointer;width:100%;">Close</button>
-    </div>
-  </div>
 
   <!-- Hub Modal -->
   <div id="hubModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:100;align-items:center;justify-content:center;">
@@ -1420,259 +1389,6 @@
 
     loopClearBtn.addEventListener("click", clearAllLoops);
 
-    // ---------- SHARE FUNCTIONALITY ----------
-    const shareModal = document.getElementById("shareModal");
-    const shareBtn = document.getElementById("shareBtn");
-    const loadShareBtn = document.getElementById("loadShareBtn");
-    const shareExportSection = document.getElementById("shareExportSection");
-    const shareImportSection = document.getElementById("shareImportSection");
-    const shareModalTitle = document.getElementById("shareModalTitle");
-    const shareName = document.getElementById("shareName");
-    const shareCode = document.getElementById("shareCode");
-    const copyCodeBtn = document.getElementById("copyCodeBtn");
-    const loadCode = document.getElementById("loadCode");
-    const loadCodeBtn = document.getElementById("loadCodeBtn");
-    const closeModalBtn = document.getElementById("closeModalBtn");
-    const loadedProjectInfo = document.getElementById("loadedProjectInfo");
-    const loadedProjectName = document.getElementById("loadedProjectName");
-    const loadedProjectDetails = document.getElementById("loadedProjectDetails");
-
-    function generateShareCode(){
-      // Compact format: much shorter code
-      // Encode octave: original is -1 to 2, store as 0-3
-      function encOct(o){ return (parseInt(o) || 0) + 1; }
-      const d = {
-        n: shareName.value || "?",
-        t: tempo(),
-        // Drums: convert each pattern to hex (16 bits = 4 hex chars)
-        dr: tracks.map(tr => {
-          let bits = 0;
-          for(let i = 0; i < 16; i++) if(tr.pattern[i]) bits |= (1 << i);
-          return bits.toString(16).padStart(4, '0');
-        }).join(''),
-        // Bass: note letters + octave (e.g., "A1C2E1" or "--" for empty)
-        ba: bassState.steps.map(s => s.note ? s.note[0] + encOct(s.oct) : '--').join(''),
-        // Lead: same format
-        le: leadState.steps.map(s => s.note ? s.note[0] + encOct(s.oct) : '--').join(''),
-        // Params: rounded to 1 decimal
-        p: [
-          Math.round(+cutEl.value * 10) / 10,
-          Math.round(+resEl.value * 10) / 10,
-          Math.round(+envEl.value * 10) / 10,
-          Math.round(+bDecayEl.value * 100) / 100,
-          Math.round(+lCutEl.value * 10) / 10,
-          Math.round(+lResEl.value * 10) / 10,
-          Math.round(+lEnvEl.value * 10) / 10,
-          Math.round(+lGateEl.value * 100) / 100
-        ]
-      };
-      
-      const json = JSON.stringify(d);
-      return btoa(json).replace(/=/g, '');
-    }
-
-    function parseShareCode(code){
-      try {
-        // Add back padding if needed
-        while(code.length % 4 !== 0) code += '=';
-        const json = atob(code.trim());
-        const d = JSON.parse(json);
-        
-        // Convert back to full format
-        const noteMap = { 'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E', 'F': 'F', 'G': 'G' };
-        
-        // Parse drums from hex
-        const drumPatterns = [];
-        for(let i = 0; i < 8; i++){
-          const hex = d.dr.substr(i * 4, 4);
-          const bits = parseInt(hex, 16);
-          const pattern = [];
-          for(let j = 0; j < 16; j++) pattern.push(!!(bits & (1 << j)));
-          drumPatterns.push(pattern);
-        }
-        
-        // Decode octave: stored as 0-3, original is -1 to 2
-        function decOct(str){ return (parseInt(str) || 0) - 1; }
-        
-        // Parse bass
-        const bassSteps = [];
-        for(let i = 0; i < 16; i++){
-          const ch = d.ba[i * 2];
-          const oct = d.ba[i * 2 + 1];
-          if(ch === '-'){
-            bassSteps.push({ note: null, oct: 0 });
-          } else {
-            bassSteps.push({ note: ch, oct: decOct(oct) });
-          }
-        }
-        
-        // Parse lead
-        const leadSteps = [];
-        for(let i = 0; i < 16; i++){
-          const ch = d.le[i * 2];
-          const oct = d.le[i * 2 + 1];
-          if(ch === '-'){
-            leadSteps.push({ note: null, oct: 0 });
-          } else {
-            leadSteps.push({ note: ch, oct: decOct(oct) });
-          }
-        }
-        
-        return {
-          name: d.n,
-          tempo: d.t,
-          drums: tracks.map((tr, i) => ({
-            key: tr.key,
-            pattern: drumPatterns[i] || new Array(16).fill(false),
-            vol: tr.vol
-          })),
-          bass: { steps: bassSteps },
-          lead: { steps: leadSteps },
-          params: {
-            bass: { cut: d.p[0], res: d.p[1], env: d.p[2], dec: d.p[3], mix: 0, fb: 0 },
-            lead: { cut: d.p[4], res: d.p[5], env: d.p[6], gate: d.p[7], mix: 0, fb: 0 },
-            mixer: { dV: 0.8, bV: 0.75, lV: 0.7, dF: 1, bF: 1, lF: 1 }
-          }
-        };
-      } catch(e) {
-        console.error("Failed to parse share code:", e);
-        return null;
-      }
-    }
-
-    function loadProjectFromData(data){
-      if(!data) return false;
-      
-      // Set tempo
-      if(data.tempo) tempoEl.value = data.tempo;
-      
-      // Load drum patterns
-      if(data.drums){
-        for(const drumData of data.drums){
-          const tr = tracks.find(t => t.key === drumData.key);
-          if(tr && drumData.pattern){
-            tr.pattern = [...drumData.pattern];
-            if(drumData.vol !== undefined) tr.vol = drumData.vol;
-          }
-        }
-        renderDrumGrid();
-      }
-      
-      // Load bass
-      if(data.bass && data.bass.steps){
-        bassState.steps = data.bass.steps.map(s => ({ note: s.note, oct: s.oct || 0 }));
-        renderSeqGrid(bassState, bassGridEl, "bass");
-      }
-      
-      // Load lead
-      if(data.lead && data.lead.steps){
-        leadState.steps = data.lead.steps.map(s => ({ note: s.note, oct: s.oct || 0 }));
-        renderSeqGrid(leadState, leadGridEl, "lead");
-      }
-      
-      // Load params
-      if(data.params){
-        if(data.params.bass){
-          if(data.params.bass.cut !== undefined) cutEl.value = data.params.bass.cut;
-          if(data.params.bass.res !== undefined) resEl.value = data.params.bass.res;
-          if(data.params.bass.env !== undefined) envEl.value = data.params.bass.env;
-          if(data.params.bass.dec !== undefined) bDecayEl.value = data.params.bass.dec;
-        }
-        if(data.params.lead){
-          if(data.params.lead.cut !== undefined) lCutEl.value = data.params.lead.cut;
-          if(data.params.lead.res !== undefined) lResEl.value = data.params.lead.res;
-          if(data.params.lead.env !== undefined) lEnvEl.value = data.params.lead.env;
-          if(data.params.lead.gate !== undefined) lGateEl.value = data.params.lead.gate;
-        }
-      }
-      
-      // Store as a loop so it can be played
-      loopSlots[0] = {
-        drums: data.drums,
-        bass: data.bass,
-        lead: data.lead,
-        params: data.params,
-        tempo: data.tempo
-      };
-      updateLoopUI();
-      
-      return true;
-    }
-
-    shareBtn.addEventListener("click", () => {
-      shareModalTitle.textContent = "Share Your Music";
-      shareExportSection.style.display = "block";
-      shareImportSection.style.display = "none";
-      shareCode.value = generateShareCode();
-      shareModal.style.display = "flex";
-    });
-
-    loadShareBtn.addEventListener("click", () => {
-      shareModalTitle.textContent = "Load a Project";
-      shareExportSection.style.display = "none";
-      shareImportSection.style.display = "block";
-      loadCode.value = "";
-      loadedProjectInfo.style.display = "none";
-      shareModal.style.display = "flex";
-    });
-
-    copyCodeBtn.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(shareCode.value);
-        copyCodeBtn.textContent = "✓ Copied!";
-        setTimeout(() => { copyCodeBtn.textContent = "Copy Code"; }, 2000);
-      } catch(e) {
-        shareCode.select();
-        document.execCommand("copy");
-        copyCodeBtn.textContent = "✓ Copied!";
-        setTimeout(() => { copyCodeBtn.textContent = "Copy Code"; }, 2000);
-      }
-    });
-
-    loadCode.addEventListener("input", () => {
-      const data = parseShareCode(loadCode.value);
-      if(data){
-        loadedProjectInfo.style.display = "block";
-        loadedProjectName.textContent = data.name || "Unnamed Project";
-        loadedProjectDetails.textContent = `Tempo: ${data.tempo || 120} BPM`;
-      } else {
-        loadedProjectInfo.style.display = "none";
-      }
-    });
-
-    loadCodeBtn.addEventListener("click", async () => {
-      const data = parseShareCode(loadCode.value);
-      if(!data){
-        alert("Invalid share code!");
-        return;
-      }
-      
-      await resumeAudio();
-      ensureSynths();
-      
-      if(loadProjectFromData(data)){
-        shareModal.style.display = "none";
-        setStatus(`Loaded: ${data.name || "Unnamed"}`);
-        
-        // Auto-play the loaded project
-        playingSlot = 0;
-        loopBarsPlayed = 1;
-        triggerLoopAudio(0, ctx.currentTime);
-        updateLoopUI();
-        setStatus(`Playing: ${data.name || "Unnamed"}`);
-      } else {
-        alert("Failed to load project!");
-      }
-    });
-
-    closeModalBtn.addEventListener("click", () => {
-      shareModal.style.display = "none";
-    });
-
-    shareModal.addEventListener("click", (e) => {
-      if(e.target === shareModal) shareModal.style.display = "none";
-    });
-
     // ---------- CLASSROOM HUB ----------
     const hubModal = document.getElementById("hubModal");
     const hubBtn = document.getElementById("hubBtn");
@@ -2045,9 +1761,9 @@
               barsPlayed = 0;
               currentSlotIndex++;
               
+              // Loop back to first slot when all slots played
               if(currentSlotIndex >= projectSlots.length){
-                finished = true;
-                break;
+                currentSlotIndex = 0;
               }
               
               // Switch to next slot without resetting timing
@@ -2069,16 +1785,6 @@
         // Defer UI update
         if(statusMsg){
           requestAnimationFrame(function(){ setStatus(statusMsg); });
-        }
-        
-        if(finished){
-          hubPlaying = false;
-          requestAnimationFrame(function(){
-            hideStudentName();
-            setStatus("Finished: " + project.name);
-          });
-          if(hubTimer) clearTimeout(hubTimer);
-          return;
         }
         
         hubTimer = setTimeout(scheduleSlotStep, 20);
@@ -2202,13 +1908,15 @@
     });
     
     async function playNextHubProject(){
-      if(!hubPlaying || hubPlayIndex >= hubProjects.length){
-        hubPlaying = false;
-        hubPlayIndex = -1;
-        stopLoopPlayback();
+      if(!hubPlaying){
         hideStudentName();
-        setStatus("Finished playing all!");
+        setStatus("Stopped");
         return;
+      }
+      
+      // Loop back to first student when all have played
+      if(hubPlayIndex >= hubProjects.length){
+        hubPlayIndex = 0;
       }
       
       const project = hubProjects[hubPlayIndex];
