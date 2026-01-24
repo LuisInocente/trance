@@ -1194,15 +1194,8 @@
       
       // Apply mixer settings from the loop
       const pattern = loopSlots[playingSlot];
-      if(pattern && pattern.params && pattern.params.mixer){
-        const m = pattern.params.mixer;
-        if(m.dV !== undefined) mDrumVolEl.value = m.dV;
-        if(m.bV !== undefined) mBassVolEl.value = m.bV;
-        if(m.lV !== undefined) mLeadVolEl.value = m.lV;
-        if(m.dF !== undefined) mDrumLPFEl.value = m.dF;
-        if(m.bF !== undefined) mBassLPFEl.value = m.bF;
-        if(m.lF !== undefined) mLeadLPFEl.value = m.lF;
-        applyMixerNow(true);
+      if(pattern) {
+        applyProjectMixer(pattern);
       }
       
       loopStep = 0;
@@ -1253,7 +1246,7 @@
     
     // Play a single step from pattern data
     function playLoopStep(pattern, stepIndex, time){
-      if(!ctx || !pattern) return;
+      if(!ctx || !pattern || !isFinite(time)) return;
       
       // Play drums
       if(pattern.drums){
@@ -1277,41 +1270,53 @@
         }
       }
       
-      // Get params with defaults
-      const bp = pattern.params?.bass || {};
-      const lp = pattern.params?.lead || {};
+      // Get params with safe defaults
+      const bp = (pattern.params && pattern.params.bass) || {};
+      const lp = (pattern.params && pattern.params.lead) || {};
+      
+      // Safe number function
+      function safeNum(val, def){
+        const n = Number(val);
+        return isFinite(n) ? n : def;
+      }
       
       // Play bass
-      if(pattern.bass?.steps){
+      if(pattern.bass && pattern.bass.steps){
         const bassData = pattern.bass.steps[stepIndex];
-        if(bassData && bassData.note){
-          const freq = hzForNote(bassData.note, bassData.oct || 0);
-          bassSynth.trigger({
-            freq, time,
-            decay: bp.dec ?? 0.28,
-            gate: 0.55,
-            envAmt: bp.env ?? 0,
-            baseCut01: bp.cut ?? 0,
-            release: 0.10,
-            vel: 1.0
-          });
+        if(bassData && bassData.note && typeof bassData.note === 'string'){
+          const freq = hzForNote(bassData.note, safeNum(bassData.oct, 0));
+          if(isFinite(freq) && freq > 0){
+            bassSynth.trigger({
+              freq: freq,
+              time: time,
+              decay: safeNum(bp.dec, 0.28),
+              gate: 0.55,
+              envAmt: safeNum(bp.env, 0),
+              baseCut01: safeNum(bp.cut, 0),
+              release: 0.10,
+              vel: 1.0
+            });
+          }
         }
       }
       
       // Play lead
-      if(pattern.lead?.steps){
+      if(pattern.lead && pattern.lead.steps){
         const leadData = pattern.lead.steps[stepIndex];
-        if(leadData && leadData.note){
-          const freq = hzForNote(leadData.note, (leadData.oct || 0) + 1);
-          leadSynth.trigger({
-            freq, time,
-            decay: 0.22,
-            gate: lp.gate ?? 0.55,
-            envAmt: lp.env ?? 0,
-            baseCut01: lp.cut ?? 0,
-            release: 0.11,
-            vel: 1.0
-          });
+        if(leadData && leadData.note && typeof leadData.note === 'string'){
+          const freq = hzForNote(leadData.note, safeNum(leadData.oct, 0) + 1);
+          if(isFinite(freq) && freq > 0){
+            leadSynth.trigger({
+              freq: freq,
+              time: time,
+              decay: 0.22,
+              gate: safeNum(lp.gate, 0.55),
+              envAmt: safeNum(lp.env, 0),
+              baseCut01: safeNum(lp.cut, 0),
+              release: 0.11,
+              vel: 1.0
+            });
+          }
         }
       }
     }
@@ -1923,18 +1928,18 @@
     
     // Apply mixer settings from project data
     function applyProjectMixer(data){
-      if(!data || !data.params) return;
+      if(!data) return;
       
-      const m = data.params.mixer;
-      if(m){
-        if(m.dV !== undefined) mDrumVolEl.value = m.dV;
-        if(m.bV !== undefined) mBassVolEl.value = m.bV;
-        if(m.lV !== undefined) mLeadVolEl.value = m.lV;
-        if(m.dF !== undefined) mDrumLPFEl.value = m.dF;
-        if(m.bF !== undefined) mBassLPFEl.value = m.bF;
-        if(m.lF !== undefined) mLeadLPFEl.value = m.lF;
-        applyMixerNow(true);
-      }
+      const m = (data.params && data.params.mixer) || {};
+      
+      if(isFinite(m.dV)) mDrumVolEl.value = m.dV;
+      if(isFinite(m.bV)) mBassVolEl.value = m.bV;
+      if(isFinite(m.lV)) mLeadVolEl.value = m.lV;
+      if(isFinite(m.dF)) mDrumLPFEl.value = m.dF;
+      if(isFinite(m.bF)) mBassLPFEl.value = m.bF;
+      if(isFinite(m.lF)) mLeadLPFEl.value = m.lF;
+      
+      applyMixerNow(true);
     }
     
     // Big student name display
@@ -3028,6 +3033,16 @@
       }
 
       function trigger({ freq, time, decay=0.22, gate=0.55, envAmt=0.35, baseCut01=0.30, release=0.11, vel=1.0 }){
+        // Safety checks for all params
+        if(!isFinite(freq) || !isFinite(time)) return;
+        freq = Math.max(20, Math.min(freq, 20000));
+        decay = isFinite(decay) ? decay : 0.22;
+        gate = isFinite(gate) ? gate : 0.55;
+        envAmt = isFinite(envAmt) ? envAmt : 0;
+        baseCut01 = isFinite(baseCut01) ? baseCut01 : 0.3;
+        release = isFinite(release) ? release : 0.11;
+        vel = isFinite(vel) ? vel : 1.0;
+        
         const vca = ctx.createGain();
         vca.gain.setValueAtTime(0.0001, time);
 
@@ -3161,7 +3176,9 @@
     function hzForNote(noteName, oct){
       const baseMidi = 45; // A2
       const semi = NOTE_TO_SEMI[noteName];
-      const midi = baseMidi + semi + (oct*12);
+      if(semi === undefined) return NaN;
+      const o = isFinite(oct) ? oct : 0;
+      const midi = baseMidi + semi + (o * 12);
       return 440 * Math.pow(2, (midi - 69) / 12);
     }
 
