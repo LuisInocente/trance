@@ -1122,6 +1122,11 @@
             dF: parseFloat(mDrumLPFEl.value) || 1,
             bF: parseFloat(mBassLPFEl.value) || 1,
             lF: parseFloat(mLeadLPFEl.value) || 1
+          },
+          mutes: {
+            drum: mDrumMuteBtn.classList.contains("active") ? 1 : 0,
+            bass: mBassMuteBtn.classList.contains("active") ? 1 : 0,
+            lead: mLeadMuteBtn.classList.contains("active") ? 1 : 0
           }
         },
         tempo: tempo()
@@ -1673,6 +1678,7 @@
           for(let i = 0; i < 16; i++) if(tr.pattern[i]) bits |= (1 << i);
           return bits.toString(16).padStart(4, '0');
         }).join(''),
+        dv: tracks.map(tr => Math.round(tr.vol * 100) / 100), // drum volumes
         ba: bassState.steps.map(s => s.note ? s.note[0] + s.oct : '--').join(''),
         le: leadState.steps.map(s => s.note ? s.note[0] + s.oct : '--').join(''),
         p: [
@@ -1692,6 +1698,11 @@
           Math.round(parseFloat(mDrumLPFEl.value) * 100) / 100,
           Math.round(parseFloat(mBassLPFEl.value) * 100) / 100,
           Math.round(parseFloat(mLeadLPFEl.value) * 100) / 100
+        ],
+        mt: [
+          mDrumMuteBtn.classList.contains("active") ? 1 : 0,
+          mBassMuteBtn.classList.contains("active") ? 1 : 0,
+          mLeadMuteBtn.classList.contains("active") ? 1 : 0
         ]
       };
     }
@@ -1709,6 +1720,9 @@
         drumPatterns.push(pattern);
       }
       
+      // Drum volumes
+      const drumVols = d.dv || tracks.map(t => t.vol);
+      
       const bassSteps = [];
       for(let i = 0; i < 16; i++){
         const ch = d.ba ? d.ba[i * 2] : '-';
@@ -1725,20 +1739,22 @@
       
       const p = d.p || [0,0,0,0.28,0,0,0,0.55];
       const m = d.m || [0.8,0.75,0.7,1,1,1];
+      const mt = d.mt || [0,0,0];
       
       return {
         tempo: d.t || 120,
         drums: tracks.map((tr, i) => ({
           key: tr.key,
           pattern: drumPatterns[i] || new Array(16).fill(false),
-          vol: tr.vol
+          vol: drumVols[i] !== undefined ? drumVols[i] : tr.vol
         })),
         bass: { steps: bassSteps },
         lead: { steps: leadSteps },
         params: {
           bass: { cut: p[0], res: p[1], env: p[2], dec: p[3] },
           lead: { cut: p[4], res: p[5], env: p[6], gate: p[7] },
-          mixer: { dV: m[0], bV: m[1], lV: m[2], dF: m[3], bF: m[4], lF: m[5] }
+          mixer: { dV: m[0], bV: m[1], lV: m[2], dF: m[3], bF: m[4], lF: m[5] },
+          mutes: { drum: mt[0], bass: mt[1], lead: mt[2] }
         }
       };
     }
@@ -1760,8 +1776,57 @@
         return;
       }
       
+      // Check if any loops are recorded
+      const hasLoops = loopSlots.some(s => s !== null);
+      if(!hasLoops){
+        hubSubmitStatus.textContent = "Record at least one loop first!";
+        hubSubmitStatus.style.color = "#f87171";
+        return;
+      }
+      
       hubSubmitStatus.textContent = "Submitting...";
       hubSubmitStatus.style.color = "#fbbf24";
+      
+      // Convert loop slots to compact format
+      function slotToCompact(slot){
+        if(!slot) return null;
+        return {
+          t: slot.tempo || tempo(),
+          dr: slot.drums ? slot.drums.map(function(tr){
+            var bits = 0;
+            for(var i = 0; i < 16; i++) if(tr.pattern && tr.pattern[i]) bits |= (1 << i);
+            return bits.toString(16).padStart(4, '0');
+          }).join('') : '',
+          dv: slot.drums ? slot.drums.map(function(tr){ return Math.round((tr.vol || 0.8) * 100) / 100; }) : [],
+          ba: slot.bass && slot.bass.steps ? slot.bass.steps.map(function(s){ return s.note ? s.note[0] + (s.oct || 0) : '--'; }).join('') : '',
+          le: slot.lead && slot.lead.steps ? slot.lead.steps.map(function(s){ return s.note ? s.note[0] + (s.oct || 0) : '--'; }).join('') : '',
+          p: slot.params ? [
+            (slot.params.bass && slot.params.bass.cut) || 0,
+            (slot.params.bass && slot.params.bass.res) || 0,
+            (slot.params.bass && slot.params.bass.env) || 0,
+            (slot.params.bass && slot.params.bass.dec) || 0.28,
+            (slot.params.lead && slot.params.lead.cut) || 0,
+            (slot.params.lead && slot.params.lead.res) || 0,
+            (slot.params.lead && slot.params.lead.env) || 0,
+            (slot.params.lead && slot.params.lead.gate) || 0.55
+          ] : [0,0,0,0.28,0,0,0,0.55],
+          m: slot.params && slot.params.mixer ? [
+            slot.params.mixer.dV || 0.8,
+            slot.params.mixer.bV || 0.75,
+            slot.params.mixer.lV || 0.7,
+            slot.params.mixer.dF || 1,
+            slot.params.mixer.bF || 1,
+            slot.params.mixer.lF || 1
+          ] : [0.8,0.75,0.7,1,1,1],
+          mt: slot.params && slot.params.mutes ? [
+            slot.params.mutes.drum || 0,
+            slot.params.mutes.bass || 0,
+            slot.params.mutes.lead || 0
+          ] : [0,0,0]
+        };
+      }
+      
+      var slots = loopSlots.map(slotToCompact);
       
       try {
         const res = await fetch(url, {
@@ -1770,7 +1835,7 @@
           body: JSON.stringify({
             action: 'submit',
             name: name,
-            data: getProjectData()
+            data: { slots: slots }
           })
         });
         
@@ -1781,11 +1846,11 @@
           hubSubmitStatus.style.color = "#4ade80";
           localStorage.setItem("musicHubStudentName", name);
         } else {
-          hubSubmitStatus.textContent = `${result.error || 'Failed'}`;
+          hubSubmitStatus.textContent = result.error || 'Failed';
           hubSubmitStatus.style.color = "#f87171";
         }
       } catch(e){
-        hubSubmitStatus.textContent = `Connection error`;
+        hubSubmitStatus.textContent = "Connection error";
         hubSubmitStatus.style.color = "#f87171";
       }
     });
@@ -1843,20 +1908,25 @@
       hubProjectList.innerHTML = sorted.map((s, i) => {
         const origIndex = hubProjects.indexOf(s);
         const time = s.time ? new Date(s.time).toLocaleTimeString() : '';
-        return `
-          <div style="display:flex;align-items:center;gap:8px;padding:10px;background:var(--card);border-radius:8px;margin-bottom:6px;" id="hubItem${origIndex}">
-            <span style="font-size:16px;color:var(--muted);">♪</span>
-            <div style="flex:1;min-width:0;">
-              <div style="font-weight:bold;color:var(--text);overflow:hidden;text-overflow:ellipsis;">${escapeHtml(s.name)}</div>
-              <div style="font-size:10px;color:var(--muted);">${time}</div>
-            </div>
-            <button onclick="playHubProject(${origIndex})" style="padding:8px 16px;background:#22c55e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;">▶</button>
-          </div>
-        `;
+        // Count loops
+        let loopCount = 0;
+        if(s.data && s.data.slots){
+          loopCount = s.data.slots.filter(function(sl){ return sl !== null; }).length;
+        } else if(s.data && s.data.dr){
+          loopCount = 1; // Old format - single pattern
+        }
+        return '<div style="display:flex;align-items:center;gap:8px;padding:10px;background:var(--card);border-radius:8px;margin-bottom:6px;" id="hubItem' + origIndex + '">' +
+          '<span style="font-size:16px;color:var(--muted);">' + loopCount + '</span>' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div style="font-weight:bold;color:var(--text);overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(s.name) + '</div>' +
+            '<div style="font-size:10px;color:var(--muted);">' + time + '</div>' +
+          '</div>' +
+          '<button onclick="playHubProject(' + origIndex + ')" style="padding:8px 16px;background:#22c55e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;">Play</button>' +
+        '</div>';
       }).join('');
     }
     
-    // Play a specific hub project
+    // Play a specific hub project (all slots)
     window.playHubProject = async function(index){
       const project = hubProjects[index];
       if(!project) return;
@@ -1867,63 +1937,86 @@
       await resumeAudio();
       ensureSynths();
       
-      const data = parseProjectData(project.data);
-      if(!data) return;
+      // Parse slots - handle both new format (slots array) and old format (single pattern)
+      var projectSlots = [];
+      if(project.data && project.data.slots){
+        for(var i = 0; i < project.data.slots.length; i++){
+          if(project.data.slots[i]){
+            projectSlots.push(parseProjectData(project.data.slots[i]));
+          }
+        }
+      } else if(project.data){
+        // Old format - single pattern
+        var parsed = parseProjectData(project.data);
+        if(parsed) projectSlots.push(parsed);
+      }
       
-      loopSlots[0] = data;
+      if(projectSlots.length === 0) return;
+      
       stopLoopPlayback();
-      
-      // Apply mixer settings from the project
-      applyProjectMixer(data);
-      
       hubModal.style.display = "none";
-      
-      // Show student name prominently
       showStudentName(project.name);
       
-      // Play 4 bars with proper scheduler
-      let barsPlayed = 0;
-      let step = 0;
-      let nextTime = ctx.currentTime + 0.05;
-      let hubTimer = null;
+      // Play through all slots
+      var currentSlotIndex = 0;
+      var barsPlayed = 0;
+      var step = 0;
+      var nextTime = ctx.currentTime + 0.05;
+      var hubTimer = null;
       
-      function scheduleProjectStep(){
-        if(!hubPlaying) {
+      function playCurrentSlot(){
+        if(!hubPlaying || currentSlotIndex >= projectSlots.length){
+          hubPlaying = false;
           hideStudentName();
-          if(hubTimer) clearTimeout(hubTimer);
+          setStatus("Finished: " + project.name);
           return;
         }
         
-        const pattern = loopSlots[0];
-        if(!pattern) return;
+        var currentPattern = projectSlots[currentSlotIndex];
+        loopSlots[0] = currentPattern;
+        applyProjectMixer(currentPattern);
         
-        const stepDur = sixteenthSec();
+        barsPlayed = 0;
+        step = 0;
+        nextTime = ctx.currentTime + 0.02;
         
-        while(nextTime < ctx.currentTime + 0.1){
-          playLoopStep(pattern, step, nextTime);
-          
-          step++;
-          if(step >= 16){
-            step = 0;
-            barsPlayed++;
-            setStatus(project.name + " - Bar " + barsPlayed + "/4");
-            
-            if(barsPlayed >= 4){
-              hubPlaying = false;
-              hideStudentName();
-              setStatus("Finished: " + project.name);
-              if(hubTimer) clearTimeout(hubTimer);
-              return;
-            }
+        setStatus(project.name + " - Loop " + (currentSlotIndex + 1) + "/" + projectSlots.length);
+        
+        function scheduleSlotStep(){
+          if(!hubPlaying){
+            hideStudentName();
+            if(hubTimer) clearTimeout(hubTimer);
+            return;
           }
-          nextTime += stepDur;
+          
+          var stepDur = sixteenthSec();
+          
+          while(nextTime < ctx.currentTime + 0.1){
+            playLoopStep(currentPattern, step, nextTime);
+            
+            step++;
+            if(step >= 16){
+              step = 0;
+              barsPlayed++;
+              setStatus(project.name + " - Loop " + (currentSlotIndex + 1) + "/" + projectSlots.length + " - Bar " + barsPlayed + "/4");
+              
+              if(barsPlayed >= 4){
+                currentSlotIndex++;
+                if(hubTimer) clearTimeout(hubTimer);
+                setTimeout(playCurrentSlot, 100);
+                return;
+              }
+            }
+            nextTime += stepDur;
+          }
+          
+          hubTimer = setTimeout(scheduleSlotStep, 20);
         }
         
-        hubTimer = setTimeout(scheduleProjectStep, 20);
+        scheduleSlotStep();
       }
       
-      setStatus("Playing: " + project.name);
-      scheduleProjectStep();
+      playCurrentSlot();
     };
     
     // Apply mixer settings from project data
@@ -1931,6 +2024,7 @@
       if(!data) return;
       
       const m = (data.params && data.params.mixer) || {};
+      const mt = (data.params && data.params.mutes) || {};
       
       if(isFinite(m.dV)) mDrumVolEl.value = m.dV;
       if(isFinite(m.bV)) mBassVolEl.value = m.bV;
@@ -1938,6 +2032,14 @@
       if(isFinite(m.dF)) mDrumLPFEl.value = m.dF;
       if(isFinite(m.bF)) mBassLPFEl.value = m.bF;
       if(isFinite(m.lF)) mLeadLPFEl.value = m.lF;
+      
+      // Apply mutes
+      if(mt.drum) mDrumMuteBtn.classList.add("active");
+      else mDrumMuteBtn.classList.remove("active");
+      if(mt.bass) mBassMuteBtn.classList.add("active");
+      else mBassMuteBtn.classList.remove("active");
+      if(mt.lead) mLeadMuteBtn.classList.add("active");
+      else mLeadMuteBtn.classList.remove("active");
       
       applyMixerNow(true);
     }
@@ -2024,63 +2126,93 @@
       await resumeAudio();
       ensureSynths();
       
-      const data = parseProjectData(project.data);
-      if(!data){
+      // Parse slots - handle both new format (slots array) and old format (single pattern)
+      var projectSlots = [];
+      if(project.data && project.data.slots){
+        for(var i = 0; i < project.data.slots.length; i++){
+          if(project.data.slots[i]){
+            projectSlots.push(parseProjectData(project.data.slots[i]));
+          }
+        }
+      } else if(project.data){
+        var parsed = parseProjectData(project.data);
+        if(parsed) projectSlots.push(parsed);
+      }
+      
+      if(projectSlots.length === 0){
         hubPlayIndex++;
         playNextHubProject();
         return;
       }
       
-      loopSlots[0] = data;
-      
-      // Apply mixer settings
-      applyProjectMixer(data);
-      
-      // Show student name prominently
       showStudentName(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ")");
       
-      // Play 4 bars then move to next
-      let barsPlayed = 0;
-      let step = 0;
-      let nextTime = ctx.currentTime + 0.05;
-      let hubTimer = null;
+      // Play through all slots for this project
+      var currentSlotIndex = 0;
+      var barsPlayed = 0;
+      var step = 0;
+      var nextTime = ctx.currentTime + 0.05;
+      var hubTimer = null;
       
-      function scheduleHubStep(){
-        if(!hubPlaying) {
+      function playCurrentSlotInAll(){
+        if(!hubPlaying){
           hideStudentName();
-          if(hubTimer) clearTimeout(hubTimer);
           return;
         }
         
-        const pattern = loopSlots[0];
-        if(!pattern) return;
-        
-        const stepDur = sixteenthSec();
-        
-        while(nextTime < ctx.currentTime + 0.1){
-          playLoopStep(pattern, step, nextTime);
-          
-          step++;
-          if(step >= 16){
-            step = 0;
-            barsPlayed++;
-            setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Bar " + barsPlayed + "/4");
-            
-            if(barsPlayed >= 4){
-              hubPlayIndex++;
-              if(hubTimer) clearTimeout(hubTimer);
-              setTimeout(playNextHubProject, 300);
-              return;
-            }
-          }
-          nextTime += stepDur;
+        if(currentSlotIndex >= projectSlots.length){
+          // Move to next project
+          hubPlayIndex++;
+          setTimeout(playNextHubProject, 300);
+          return;
         }
         
-        hubTimer = setTimeout(scheduleHubStep, 20);
+        var currentPattern = projectSlots[currentSlotIndex];
+        loopSlots[0] = currentPattern;
+        applyProjectMixer(currentPattern);
+        
+        barsPlayed = 0;
+        step = 0;
+        nextTime = ctx.currentTime + 0.02;
+        
+        var totalLoops = projectSlots.length;
+        setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops);
+        
+        function scheduleSlotStepInAll(){
+          if(!hubPlaying){
+            hideStudentName();
+            if(hubTimer) clearTimeout(hubTimer);
+            return;
+          }
+          
+          var stepDur = sixteenthSec();
+          
+          while(nextTime < ctx.currentTime + 0.1){
+            playLoopStep(currentPattern, step, nextTime);
+            
+            step++;
+            if(step >= 16){
+              step = 0;
+              barsPlayed++;
+              setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops + " - Bar " + barsPlayed + "/4");
+              
+              if(barsPlayed >= 4){
+                currentSlotIndex++;
+                if(hubTimer) clearTimeout(hubTimer);
+                setTimeout(playCurrentSlotInAll, 100);
+                return;
+              }
+            }
+            nextTime += stepDur;
+          }
+          
+          hubTimer = setTimeout(scheduleSlotStepInAll, 20);
+        }
+        
+        scheduleSlotStepInAll();
       }
       
-      setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ")");
-      scheduleHubStep();
+      playCurrentSlotInAll();
     }
     
     // Clear all submissions
