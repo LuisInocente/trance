@@ -239,6 +239,7 @@
     
     .card.drums{ flex:0 0 auto; }
     .card.card-lead{ flex:0 0 auto; }
+    .card.card-piano{ flex:0 0 auto; }
     .card.card-bass{ flex:0 0 auto; }
     .card.card-mixer{ flex:0 0 auto; }
 
@@ -489,10 +490,31 @@
     .seqControls .pill input[type="range"]{ width:80px; }
     .seqControls .smallBtn{ height:26px; padding:0 8px; font-size:11px; }
 
+    .barNav{
+      display:flex;
+      gap:4px;
+      margin-left:auto;
+    }
+    .barNavBtn{
+      padding:4px 10px;
+      background:var(--card);
+      border:1px solid var(--border);
+      color:var(--muted);
+      border-radius:6px;
+      cursor:pointer;
+      font-size:11px;
+      font-weight:bold;
+    }
+    .barNavBtn.active{
+      background:var(--accent);
+      color:#fff;
+      border-color:var(--accent);
+    }
+
     .tb_grid{
       display:grid;
-      grid-template-columns: 30px repeat(16, 1fr);
-      column-gap:2px;
+      grid-template-columns: 30px repeat(32, 1fr);
+      column-gap:1px;
       align-items:stretch;
       flex:1 1 auto;
       min-height:0;
@@ -813,7 +835,10 @@
     <div class="card card-lead">
       <div class="cardHead">
         <div class="title">Trance Lead</div>
-        <div></div>
+        <div class="barNav">
+          <button class="barNavBtn active" id="leadBar12">Bars 1-2</button>
+          <button class="barNavBtn" id="leadBar34">Bars 3-4</button>
+        </div>
       </div>
 
       <div class="body lead">
@@ -833,11 +858,35 @@
       </div>
     </div>
 
+    <!-- PIANO -->
+    <div class="card card-piano">
+      <div class="cardHead">
+        <div class="title">Piano</div>
+        <div class="barNav">
+          <button class="barNavBtn active" id="pianoBar12">Bars 1-2</button>
+          <button class="barNavBtn" id="pianoBar34">Bars 3-4</button>
+        </div>
+      </div>
+
+      <div class="body piano">
+        <div class="seqControls">
+          <button id="pianoReset" class="smallBtn">Reset</button>
+          <div class="pill"><span>Vol</span><input id="pianoVol" type="range" min="0" max="1" step="0.01" value="0.7"></div>
+          <div class="pill"><span>Reverb</span><input id="pianoReverb" type="range" min="0" max="1" step="0.01" value="0.3"></div>
+        </div>
+
+        <div id="piano_grid" class="tb_grid"></div>
+      </div>
+    </div>
+
     <!-- BASSLINE -->
     <div class="card card-bass">
       <div class="cardHead">
         <div class="title">Bassline</div>
-        <div></div>
+        <div class="barNav">
+          <button class="barNavBtn active" id="bassBar12">Bars 1-2</button>
+          <button class="barNavBtn" id="bassBar34">Bars 3-4</button>
+        </div>
       </div>
 
       <div class="body bass">
@@ -919,6 +968,23 @@
               <div class="faderCol">
                 <div class="faderLabel">LPF</div>
                 <input id="mLeadLPF" class="hfader" type="range" min="0" max="1" step="0.01" value="1.00">
+              </div>
+            </div>
+          </div>
+
+          <div class="chan">
+            <div class="chanTop">
+              <div class="chanName">Piano</div>
+              <button id="mPianoMute" class="muteBtn">Mute</button>
+            </div>
+            <div class="faderWrap">
+              <div class="faderCol">
+                <div class="faderLabel">Vol</div>
+                <input id="mPianoVol" class="hfader" type="range" min="0" max="1" step="0.01" value="0.22">
+              </div>
+              <div class="faderCol">
+                <div class="faderLabel">LPF</div>
+                <input id="mPianoLPF" class="hfader" type="range" min="0" max="1" step="0.01" value="1.00">
               </div>
             </div>
           </div>
@@ -1079,6 +1145,9 @@
         lead: {
           steps: leadState.steps.map(function(s){ return { note: s.note, oct: s.oct }; })
         },
+        piano: {
+          steps: pianoState.steps.map(function(s){ return { note: s.note, oct: s.oct }; })
+        },
         params: {
           bass: {
             cut: getVal(cutEl, 0),
@@ -1092,18 +1161,25 @@
             env: getVal(lEnvEl, 0),
             gate: getVal(lGateEl, 0.55)
           },
+          piano: {
+            vol: getVal(pianoVolEl, 0.7),
+            reverb: getVal(pianoReverbEl, 0.3)
+          },
           mixer: {
             dV: getVal(mDrumVolEl, 0.8),
             bV: getVal(mBassVolEl, 0.75),
             lV: getVal(mLeadVolEl, 0.7),
+            pV: getVal(mPianoVolEl, 0.7),
             dF: getVal(mDrumLPFEl, 1),
             bF: getVal(mBassLPFEl, 1),
-            lF: getVal(mLeadLPFEl, 1)
+            lF: getVal(mLeadLPFEl, 1),
+            pF: getVal(mPianoLPFEl, 1)
           },
           mutes: {
             drum: mute.drums ? 1 : 0,
             bass: mute.bass ? 1 : 0,
-            lead: mute.lead ? 1 : 0
+            lead: mute.lead ? 1 : 0,
+            piano: mute.piano ? 1 : 0
           }
         },
         tempo: tempo()
@@ -1325,6 +1401,23 @@
           }
         }
       }
+      
+      // Play piano - add +1 octave
+      var pp = (pattern.params && pattern.params.piano) || {};
+      if(pattern.piano && pattern.piano.steps && pattern.piano.steps[stepIndex]){
+        var pianoData = pattern.piano.steps[stepIndex];
+        if(pianoData.note){
+          var pianoFreq = hzForNote(pianoData.note, safeNum(pianoData.oct, 0) + 1);
+          if(isFinite(pianoFreq) && pianoFreq > 0){
+            pianoSynth.trigger({
+              freq: pianoFreq,
+              time: time,
+              vel: safeNum(pp.vol, 0.7)
+            });
+            pianoSynth.setReverb(safeNum(pp.reverb, 0.3));
+          }
+        }
+      }
     }
     
     function triggerLoopAudio(slot, time){
@@ -1487,23 +1580,29 @@
       // Decode octave (stored as 0-3, original is -1 to 2)
       function decOct(str){ return (parseInt(str) || 0) - 1; }
       
-      const bassSteps = [];
-      for(let i = 0; i < 16; i++){
-        const ch = d.ba ? d.ba[i * 2] : '-';
-        const oct = d.ba ? d.ba[i * 2 + 1] : '1';
-        bassSteps.push(ch === '-' ? { note: null, oct: 0 } : { note: ch, oct: decOct(oct) });
+      // Parse steps - handle both 16-step (old) and 64-step (new) formats
+      function parseSteps(data, len){
+        const steps = [];
+        const stepCount = data ? Math.floor(data.length / 2) : 0;
+        for(let i = 0; i < len; i++){
+          if(i < stepCount && data){
+            const ch = data[i * 2];
+            const oct = data[i * 2 + 1];
+            steps.push(ch === '-' ? { note: null, oct: 0 } : { note: ch, oct: decOct(oct) });
+          } else {
+            steps.push({ note: null, oct: 0 });
+          }
+        }
+        return steps;
       }
       
-      const leadSteps = [];
-      for(let i = 0; i < 16; i++){
-        const ch = d.le ? d.le[i * 2] : '-';
-        const oct = d.le ? d.le[i * 2 + 1] : '1';
-        leadSteps.push(ch === '-' ? { note: null, oct: 0 } : { note: ch, oct: decOct(oct) });
-      }
+      const bassSteps = parseSteps(d.ba, 64);
+      const leadSteps = parseSteps(d.le, 64);
+      const pianoSteps = parseSteps(d.pi, 64);
       
-      const p = d.p || [0,0,0,0.28,0,0,0,0.55];
-      const m = d.m || [0.8,0.75,0.7,1,1,1];
-      const mt = d.mt || [0,0,0];
+      const p = d.p || [0,0,0,0.28,0,0,0,0.55,0.7,0.3];
+      const m = d.m || [0.8,0.75,0.7,0.7,1,1,1,1];
+      const mt = d.mt || [0,0,0,0];
       
       return {
         tempo: d.t || 120,
@@ -1514,11 +1613,13 @@
         })),
         bass: { steps: bassSteps },
         lead: { steps: leadSteps },
+        piano: { steps: pianoSteps },
         params: {
           bass: { cut: p[0], res: p[1], env: p[2], dec: p[3] },
           lead: { cut: p[4], res: p[5], env: p[6], gate: p[7] },
-          mixer: { dV: m[0], bV: m[1], lV: m[2], dF: m[3], bF: m[4], lF: m[5] },
-          mutes: { drum: mt[0], bass: mt[1], lead: mt[2] }
+          piano: { vol: p[8] || 0.7, reverb: p[9] || 0.3 },
+          mixer: { dV: m[0], bV: m[1], lV: m[2], pV: m[3] || 0.7, dF: m[4] || 1, bF: m[5] || 1, lF: m[6] || 1, pF: m[7] || 1 },
+          mutes: { drum: mt[0], bass: mt[1], lead: mt[2], piano: mt[3] || 0 }
         }
       };
     }
@@ -1566,6 +1667,7 @@
           dv: slot.drums ? slot.drums.map(function(tr){ return Math.round((tr.vol || 0.8) * 100) / 100; }) : [],
           ba: slot.bass && slot.bass.steps ? slot.bass.steps.map(function(s){ return s.note ? s.note[0] + encOct(s.oct) : '--'; }).join('') : '',
           le: slot.lead && slot.lead.steps ? slot.lead.steps.map(function(s){ return s.note ? s.note[0] + encOct(s.oct) : '--'; }).join('') : '',
+          pi: slot.piano && slot.piano.steps ? slot.piano.steps.map(function(s){ return s.note ? s.note[0] + encOct(s.oct) : '--'; }).join('') : '',
           p: slot.params ? [
             (slot.params.bass && isFinite(slot.params.bass.cut)) ? slot.params.bass.cut : 0,
             (slot.params.bass && isFinite(slot.params.bass.res)) ? slot.params.bass.res : 0,
@@ -1574,21 +1676,26 @@
             (slot.params.lead && isFinite(slot.params.lead.cut)) ? slot.params.lead.cut : 0,
             (slot.params.lead && isFinite(slot.params.lead.res)) ? slot.params.lead.res : 0,
             (slot.params.lead && isFinite(slot.params.lead.env)) ? slot.params.lead.env : 0,
-            (slot.params.lead && isFinite(slot.params.lead.gate)) ? slot.params.lead.gate : 0.55
-          ] : [0,0,0,0.28,0,0,0,0.55],
+            (slot.params.lead && isFinite(slot.params.lead.gate)) ? slot.params.lead.gate : 0.55,
+            (slot.params.piano && isFinite(slot.params.piano.vol)) ? slot.params.piano.vol : 0.7,
+            (slot.params.piano && isFinite(slot.params.piano.reverb)) ? slot.params.piano.reverb : 0.3
+          ] : [0,0,0,0.28,0,0,0,0.55,0.7,0.3],
           m: slot.params && slot.params.mixer ? [
             isFinite(slot.params.mixer.dV) ? slot.params.mixer.dV : 0.8,
             isFinite(slot.params.mixer.bV) ? slot.params.mixer.bV : 0.75,
             isFinite(slot.params.mixer.lV) ? slot.params.mixer.lV : 0.7,
+            isFinite(slot.params.mixer.pV) ? slot.params.mixer.pV : 0.7,
             isFinite(slot.params.mixer.dF) ? slot.params.mixer.dF : 1,
             isFinite(slot.params.mixer.bF) ? slot.params.mixer.bF : 1,
-            isFinite(slot.params.mixer.lF) ? slot.params.mixer.lF : 1
-          ] : [0.8,0.75,0.7,1,1,1],
+            isFinite(slot.params.mixer.lF) ? slot.params.mixer.lF : 1,
+            isFinite(slot.params.mixer.pF) ? slot.params.mixer.pF : 1
+          ] : [0.8,0.75,0.7,0.7,1,1,1,1],
           mt: slot.params && slot.params.mutes ? [
             slot.params.mutes.drum ? 1 : 0,
             slot.params.mutes.bass ? 1 : 0,
-            slot.params.mutes.lead ? 1 : 0
-          ] : [0,0,0]
+            slot.params.mutes.lead ? 1 : 0,
+            slot.params.mutes.piano ? 1 : 0
+          ] : [0,0,0,0]
         };
       }
       
@@ -1804,14 +1911,17 @@
       if(isFinite(m.dV)) mDrumVolEl.value = m.dV;
       if(isFinite(m.bV)) mBassVolEl.value = m.bV;
       if(isFinite(m.lV)) mLeadVolEl.value = m.lV;
+      if(isFinite(m.pV)) mPianoVolEl.value = m.pV;
       if(isFinite(m.dF)) mDrumLPFEl.value = m.dF;
       if(isFinite(m.bF)) mBassLPFEl.value = m.bF;
       if(isFinite(m.lF)) mLeadLPFEl.value = m.lF;
+      if(isFinite(m.pF)) mPianoLPFEl.value = m.pF;
       
       // Update mute object
       mute.drums = !!mt.drum;
       mute.bass = !!mt.bass;
       mute.lead = !!mt.lead;
+      mute.piano = !!mt.piano;
       
       // Update mute button UI
       mDrumMuteBtn.classList.toggle("on", mute.drums);
@@ -1820,23 +1930,28 @@
       mBassMuteBtn.textContent = mute.bass ? "Muted" : "Mute";
       mLeadMuteBtn.classList.toggle("on", mute.lead);
       mLeadMuteBtn.textContent = mute.lead ? "Muted" : "Mute";
+      mPianoMuteBtn.classList.toggle("on", mute.piano);
+      mPianoMuteBtn.textContent = mute.piano ? "Muted" : "Mute";
       
       // Apply to audio nodes - schedule if time provided, otherwise instant
-      if(ctx && drumGain && bassGain && leadGain){
+      if(ctx && drumGain && bassGain && leadGain && pianoGain){
         var t = scheduleTime || ctx.currentTime;
         var tau = 0.003;
         
         var drumVol = mute.drums ? 0 : volFromFader(mDrumVolEl.value);
         var bassVol = mute.bass ? 0 : volFromFader(mBassVolEl.value);
         var leadVol = mute.lead ? 0 : volFromFader(mLeadVolEl.value);
+        var pianoVol = mute.piano ? 0 : volFromFader(mPianoVolEl.value);
         
         drumGain.gain.setTargetAtTime(drumVol, t, tau);
         bassGain.gain.setTargetAtTime(bassVol, t, tau);
         leadGain.gain.setTargetAtTime(leadVol, t, tau);
+        pianoGain.gain.setTargetAtTime(pianoVol, t, tau);
         
         if(drumLPF) drumLPF.frequency.setTargetAtTime(cutoffFromLPFFader(mDrumLPFEl.value), t, tau);
         if(bassLPF) bassLPF.frequency.setTargetAtTime(cutoffFromLPFFader(mBassLPFEl.value), t, tau);
         if(leadLPF) leadLPF.frequency.setTargetAtTime(cutoffFromLPFFader(mLeadLPFEl.value), t, tau);
+        if(pianoLPF) pianoLPF.frequency.setTargetAtTime(cutoffFromLPFFader(mPianoLPFEl.value), t, tau);
       }
     }
     
@@ -2061,10 +2176,10 @@
     let ctx = null;
 
     let master=null, limiter=null, hp=null;
-    let drumBus=null, bassBus=null, leadBus=null;
-    let drumGain=null, bassGain=null, leadGain=null;
-    let drumLPF=null, bassLPF=null, leadLPF=null;
-    let bassDuckGain=null, leadDuckGain=null;
+    let drumBus=null, bassBus=null, leadBus=null, pianoBus=null;
+    let drumGain=null, bassGain=null, leadGain=null, pianoGain=null;
+    let drumLPF=null, bassLPF=null, leadLPF=null, pianoLPF=null;
+    let bassDuckGain=null, leadDuckGain=null, pianoDuckGain=null;
 
     let recDest=null;
 
@@ -2091,17 +2206,21 @@
       drumBus = ctx.createGain();
       bassBus = ctx.createGain();
       leadBus = ctx.createGain();
+      pianoBus = ctx.createGain();
 
       drumLPF = ctx.createBiquadFilter(); drumLPF.type="lowpass";
       bassLPF = ctx.createBiquadFilter(); bassLPF.type="lowpass";
       leadLPF = ctx.createBiquadFilter(); leadLPF.type="lowpass";
+      pianoLPF = ctx.createBiquadFilter(); pianoLPF.type="lowpass";
 
       drumGain = ctx.createGain();
       bassGain = ctx.createGain();
       leadGain = ctx.createGain();
+      pianoGain = ctx.createGain();
 
       bassDuckGain = ctx.createGain(); bassDuckGain.gain.value = 1;
       leadDuckGain = ctx.createGain(); leadDuckGain.gain.value = 1;
+      pianoDuckGain = ctx.createGain(); pianoDuckGain.gain.value = 1;
 
       drumBus.connect(drumLPF); drumLPF.connect(drumGain); drumGain.connect(master);
 
@@ -2114,6 +2233,11 @@
       leadDuckGain.connect(leadLPF);
       leadLPF.connect(leadGain);
       leadGain.connect(master);
+
+      pianoBus.connect(pianoDuckGain);
+      pianoDuckGain.connect(pianoLPF);
+      pianoLPF.connect(pianoGain);
+      pianoGain.connect(master);
 
       recDest = ctx.createMediaStreamDestination();
 
@@ -2139,20 +2263,23 @@
     const mDrumVolEl = document.getElementById("mDrumVol");
     const mBassVolEl = document.getElementById("mBassVol");
     const mLeadVolEl = document.getElementById("mLeadVol");
+    const mPianoVolEl = document.getElementById("mPianoVol");
 
     const mDrumLPFEl = document.getElementById("mDrumLPF");
     const mBassLPFEl = document.getElementById("mBassLPF");
     const mLeadLPFEl = document.getElementById("mLeadLPF");
+    const mPianoLPFEl = document.getElementById("mPianoLPF");
 
     const mDrumMuteBtn = document.getElementById("mDrumMute");
     const mBassMuteBtn = document.getElementById("mBassMute");
     const mLeadMuteBtn = document.getElementById("mLeadMute");
+    const mPianoMuteBtn = document.getElementById("mPianoMute");
 
     const sidechainAmtEl = document.getElementById("sidechainAmt");
     const sidechainValEl = document.getElementById("sidechainVal");
     sidechainValEl.textContent = (+sidechainAmtEl.value).toFixed(2);
 
-    const mute = { drums:false, bass:false, lead:false };
+    const mute = { drums:false, bass:false, lead:false, piano:false };
 
     function sideAmt(){ return clamp(parseFloat(sidechainAmtEl.value||0),0,1); }
     function volFromFader(v){ return clamp(+v||0, 0, 1); }
@@ -2162,25 +2289,29 @@
     }
 
     function applyMixerNow(instant=false){
-      if(!ctx || !drumGain || !bassGain || !leadGain) return;
+      if(!ctx || !drumGain || !bassGain || !leadGain || !pianoGain) return;
       const t = ctx.currentTime;
       const tau = instant ? 0.001 : 0.02;
 
       const drumVol = mute.drums ? 0 : volFromFader(mDrumVolEl.value);
       const bassVol = mute.bass ? 0 : volFromFader(mBassVolEl.value);
       const leadVol = mute.lead ? 0 : volFromFader(mLeadVolEl.value);
+      const pianoVol = mute.piano ? 0 : volFromFader(mPianoVolEl.value);
 
       drumGain.gain.setTargetAtTime(drumVol, t, tau);
       bassGain.gain.setTargetAtTime(bassVol, t, tau);
       leadGain.gain.setTargetAtTime(leadVol, t, tau);
+      pianoGain.gain.setTargetAtTime(pianoVol, t, tau);
 
       if(drumLPF) drumLPF.frequency.setTargetAtTime(cutoffFromLPFFader(mDrumLPFEl.value), t, tau);
       if(bassLPF) bassLPF.frequency.setTargetAtTime(cutoffFromLPFFader(mBassLPFEl.value), t, tau);
       if(leadLPF) leadLPF.frequency.setTargetAtTime(cutoffFromLPFFader(mLeadLPFEl.value), t, tau);
+      if(pianoLPF) pianoLPF.frequency.setTargetAtTime(cutoffFromLPFFader(mPianoLPFEl.value), t, tau);
 
       if(drumLPF) drumLPF.Q.setTargetAtTime(0.55, t, tau);
       if(bassLPF) bassLPF.Q.setTargetAtTime(0.60, t, tau);
       if(leadLPF) leadLPF.Q.setTargetAtTime(0.55, t, tau);
+      if(pianoLPF) pianoLPF.Q.setTargetAtTime(0.55, t, tau);
     }
 
     function hookMixer(){
@@ -2189,7 +2320,7 @@
         scheduleSave();
       };
 
-      [mDrumVolEl,mBassVolEl,mLeadVolEl,mDrumLPFEl,mBassLPFEl,mLeadLPFEl].forEach(el => bindInput(el, mixerUpdate));
+      [mDrumVolEl,mBassVolEl,mLeadVolEl,mPianoVolEl,mDrumLPFEl,mBassLPFEl,mLeadLPFEl,mPianoLPFEl].forEach(el => bindInput(el, mixerUpdate));
 
       bindInput(sidechainAmtEl, () => {
         sidechainValEl.textContent = (+sidechainAmtEl.value).toFixed(2);
@@ -2206,15 +2337,17 @@
       mDrumMuteBtn.addEventListener("click", () => toggleMute("drums", mDrumMuteBtn));
       mBassMuteBtn.addEventListener("click", () => toggleMute("bass", mBassMuteBtn));
       mLeadMuteBtn.addEventListener("click", () => toggleMute("lead", mLeadMuteBtn));
+      mPianoMuteBtn.addEventListener("click", () => toggleMute("piano", mPianoMuteBtn));
     }
 
     function triggerSidechain(time){
-      if(!ctx || !bassDuckGain || !leadDuckGain) return;
+      if(!ctx || !bassDuckGain || !leadDuckGain || !pianoDuckGain) return;
       const amt = sideAmt();
       if(amt <= 0.0001) return;
 
       const minGainB = 1 - (amt * 0.55);
       const minGainL = 1 - (amt * 0.40);
+      const minGainP = 1 - (amt * 0.35);
       const atk = 0.008;
       const rel = 0.22;
 
@@ -2227,6 +2360,11 @@
       leadDuckGain.gain.setValueAtTime(leadDuckGain.gain.value, time);
       leadDuckGain.gain.setTargetAtTime(minGainL, time, atk);
       leadDuckGain.gain.setTargetAtTime(1.0, time + 0.03, rel);
+
+      pianoDuckGain.gain.cancelScheduledValues(time);
+      pianoDuckGain.gain.setValueAtTime(pianoDuckGain.gain.value, time);
+      pianoDuckGain.gain.setTargetAtTime(minGainP, time, atk);
+      pianoDuckGain.gain.setTargetAtTime(1.0, time + 0.03, rel);
     }
 
     // ---------- delay FX ----------
@@ -2826,6 +2964,7 @@
 
     const tbGridEl   = document.getElementById("tb_grid");
     const leadGridEl = document.getElementById("lead_grid");
+    const pianoGridEl = document.getElementById("piano_grid");
 
     // A NATURAL MINOR scale (high to low): G, F, E, D, C, B, A
     // Changed from harmonic minor (G#) to natural minor (G)
@@ -2833,11 +2972,18 @@
     // Semitones from A (A=0)
     const NOTE_TO_SEMI = { "A":0, "B":2, "C":3, "D":5, "E":7, "F":8, "G":10 };
 
-    function makeSeqState(){ return { steps: Array.from({length:16}, () => ({ note:null, oct:0 })) }; }
-    let bassState = makeSeqState();
-    let leadState = makeSeqState();
+    // 64 steps = 4 bars for bass/lead/piano
+    function makeSeqState(steps = 64){ return { steps: Array.from({length:steps}, () => ({ note:null, oct:0 })) }; }
+    let bassState = makeSeqState(64);
+    let leadState = makeSeqState(64);
+    let pianoState = makeSeqState(64);
+    
+    // View offset for 64-step sequencers (0 = bars 1-2, 32 = bars 3-4)
+    let bassViewOffset = 0;
+    let leadViewOffset = 0;
+    let pianoViewOffset = 0;
 
-    function renderSeqGrid(rootEl, state, kind){
+    function renderSeqGrid(rootEl, state, kind, offset = 0){
       rootEl.innerHTML = "";
 
       const labels = document.createElement("div");
@@ -2869,13 +3015,17 @@
 
       rootEl.appendChild(labels);
 
-      for(let s=0;s<16;s++){
+      // Show 32 steps (2 bars) at the given offset
+      for(let i = 0; i < 32; i++){
+        const s = offset + i;
         const col = document.createElement("div");
         col.className = "tb_col";
+        // Highlight bar boundaries (every 16 steps)
+        if(i === 16) col.style.borderLeft = "2px solid var(--accent)";
 
         const stepNum = document.createElement("div");
         stepNum.className = "tb_stepNum";
-        stepNum.textContent = String(s+1);
+        stepNum.textContent = String(s + 1);
         col.appendChild(stepNum);
 
         const octWrap = document.createElement("div");
@@ -2884,17 +3034,17 @@
         const btnTop = document.createElement("button");
         btnTop.className = "tb_octBtn oct-up";
         btnTop.textContent = "";
-        btnTop.addEventListener("click", () => { state.steps[s].oct = +1; renderSeqGrid(rootEl, state, kind); scheduleSave(); });
+        btnTop.addEventListener("click", () => { state.steps[s].oct = +1; renderSeqGrid(rootEl, state, kind, offset); scheduleSave(); });
 
         const btnMid = document.createElement("button");
         btnMid.className = "tb_octBtn oct-mid";
         btnMid.textContent = "";
-        btnMid.addEventListener("click", () => { state.steps[s].oct = 0; renderSeqGrid(rootEl, state, kind); scheduleSave(); });
+        btnMid.addEventListener("click", () => { state.steps[s].oct = 0; renderSeqGrid(rootEl, state, kind, offset); scheduleSave(); });
 
         const btnBot = document.createElement("button");
         btnBot.className = "tb_octBtn oct-down";
         btnBot.textContent = "";
-        btnBot.addEventListener("click", () => { state.steps[s].oct = -1; renderSeqGrid(rootEl, state, kind); scheduleSave(); });
+        btnBot.addEventListener("click", () => { state.steps[s].oct = -1; renderSeqGrid(rootEl, state, kind, offset); scheduleSave(); });
 
         btnTop.classList.toggle("on", state.steps[s].oct === +1);
         btnMid.classList.toggle("on", state.steps[s].oct === 0);
@@ -2917,7 +3067,7 @@
           pad.addEventListener("click", async () => {
             await resumeAudio();
             state.steps[s].note = (state.steps[s].note === n) ? null : n;
-            renderSeqGrid(rootEl, state, kind);
+            renderSeqGrid(rootEl, state, kind, offset);
             scheduleSave();
           });
 
@@ -2929,16 +3079,93 @@
 
       rootEl.classList.toggle("bass", kind==="bass");
       rootEl.classList.toggle("lead", kind==="lead");
+      rootEl.classList.toggle("piano", kind==="piano");
     }
 
     // ---------- synths ----------
     let bassDelayFX=null, leadDelayFX=null;
-    let bassSynth=null, leadSynth=null;
+    let bassSynth=null, leadSynth=null, pianoSynth=null;
 
     function ensureBassLeadFX(){
       if(bassDelayFX && leadDelayFX) return;
       bassDelayFX = makeDelayFX({ mixEl:dMixEl, fbEl:dFbEl }, bassBus);
       leadDelayFX = makeDelayFX({ mixEl:lMixEl, fbEl:lFbEl }, leadBus);
+    }
+
+    // Simple piano synth using FM synthesis
+    function makePianoSynth(){
+      const out = ctx.createGain();
+      out.gain.value = 1.0;
+      
+      // Reverb (simple delay-based)
+      const reverbDelay = ctx.createDelay(0.1);
+      reverbDelay.delayTime.value = 0.03;
+      const reverbGain = ctx.createGain();
+      reverbGain.gain.value = 0.3;
+      const reverbFb = ctx.createGain();
+      reverbFb.gain.value = 0.4;
+      
+      reverbDelay.connect(reverbGain);
+      reverbGain.connect(out);
+      reverbDelay.connect(reverbFb);
+      reverbFb.connect(reverbDelay);
+      
+      function setReverb(amt){
+        reverbGain.gain.value = clamp(amt, 0, 1) * 0.5;
+      }
+      
+      function trigger({ freq, time, vel = 0.7 }){
+        if(!isFinite(freq) || !isFinite(time)) return;
+        freq = Math.max(20, Math.min(freq, 8000));
+        vel = isFinite(vel) ? vel : 0.7;
+        
+        // Main tone (sine with harmonics)
+        const fundamental = ctx.createOscillator();
+        fundamental.type = "sine";
+        fundamental.frequency.setValueAtTime(freq, time);
+        
+        const harm2 = ctx.createOscillator();
+        harm2.type = "sine";
+        harm2.frequency.setValueAtTime(freq * 2, time);
+        
+        const harm3 = ctx.createOscillator();
+        harm3.type = "sine";
+        harm3.frequency.setValueAtTime(freq * 3, time);
+        
+        // VCA with piano-like envelope
+        const vca = ctx.createGain();
+        const harm2Gain = ctx.createGain();
+        const harm3Gain = ctx.createGain();
+        
+        vca.gain.setValueAtTime(0.0001, time);
+        vca.gain.linearRampToValueAtTime(vel * 0.8, time + 0.003);
+        vca.gain.setTargetAtTime(vel * 0.3, time + 0.003, 0.15);
+        vca.gain.setTargetAtTime(0.0001, time + 0.5, 0.4);
+        
+        harm2Gain.gain.setValueAtTime(vel * 0.25, time);
+        harm2Gain.gain.setTargetAtTime(0.0001, time + 0.3, 0.2);
+        
+        harm3Gain.gain.setValueAtTime(vel * 0.1, time);
+        harm3Gain.gain.setTargetAtTime(0.0001, time + 0.2, 0.1);
+        
+        fundamental.connect(vca);
+        harm2.connect(harm2Gain);
+        harm3.connect(harm3Gain);
+        
+        vca.connect(out);
+        harm2Gain.connect(out);
+        harm3Gain.connect(out);
+        
+        // Also send to reverb
+        vca.connect(reverbDelay);
+        
+        const stopT = time + 2.0;
+        try{ fundamental.start(time); fundamental.stop(stopT); }catch(_){}
+        try{ harm2.start(time); harm2.stop(stopT); }catch(_){}
+        try{ harm3.start(time); harm3.stop(stopT); }catch(_){}
+      }
+      
+      return { out, trigger, setReverb };
     }
 
     function makeMonoSynth({ fat=false, baseCutMin=20, baseCutMax=12000 }){
@@ -3041,17 +3268,20 @@
     }
 
     function ensureSynths(){
-      if(bassSynth && leadSynth) return;
+      if(bassSynth && leadSynth && pianoSynth) return;
       ensureBassLeadFX();
 
       bassSynth = makeMonoSynth({ fat:false, baseCutMin:20, baseCutMax:6500 });
       leadSynth = makeMonoSynth({ fat:true,  baseCutMin:30, baseCutMax:12000 });
+      pianoSynth = makePianoSynth();
 
       bassSynth.out.connect(bassDelayFX.dry);
       bassSynth.out.connect(bassDelayFX.wetIn);
 
       leadSynth.out.connect(leadDelayFX.dry);
       leadSynth.out.connect(leadDelayFX.wetIn);
+      
+      pianoSynth.out.connect(pianoBus);
 
       bassDelayFX.update(true);
       leadDelayFX.update(true);
@@ -3089,15 +3319,69 @@
     bindInput(lMixEl,  ()=>{ if(ctx){ ensureSynths(); leadDelayFX.update(false); } scheduleSave(); });
     bindInput(lFbEl,   ()=>{ if(ctx){ ensureSynths(); leadDelayFX.update(false); } scheduleSave(); });
 
+    const pianoResetBtn = document.getElementById("pianoReset");
+    const pianoVolEl = document.getElementById("pianoVol");
+    const pianoReverbEl = document.getElementById("pianoReverb");
+
     bassResetBtn.addEventListener("click", () => {
-      bassState = makeSeqState();
-      renderSeqGrid(tbGridEl, bassState, "bass");
+      bassState = makeSeqState(64);
+      renderSeqGrid(tbGridEl, bassState, "bass", bassViewOffset);
       scheduleSave();
     });
     leadResetBtn.addEventListener("click", () => {
-      leadState = makeSeqState();
-      renderSeqGrid(leadGridEl, leadState, "lead");
+      leadState = makeSeqState(64);
+      renderSeqGrid(leadGridEl, leadState, "lead", leadViewOffset);
       scheduleSave();
+    });
+    pianoResetBtn.addEventListener("click", () => {
+      pianoState = makeSeqState(64);
+      renderSeqGrid(pianoGridEl, pianoState, "piano", pianoViewOffset);
+      scheduleSave();
+    });
+
+    // Bar navigation buttons
+    const bassBar12 = document.getElementById("bassBar12");
+    const bassBar34 = document.getElementById("bassBar34");
+    const leadBar12 = document.getElementById("leadBar12");
+    const leadBar34 = document.getElementById("leadBar34");
+    const pianoBar12 = document.getElementById("pianoBar12");
+    const pianoBar34 = document.getElementById("pianoBar34");
+
+    bassBar12.addEventListener("click", () => {
+      bassViewOffset = 0;
+      bassBar12.classList.add("active");
+      bassBar34.classList.remove("active");
+      renderSeqGrid(tbGridEl, bassState, "bass", 0);
+    });
+    bassBar34.addEventListener("click", () => {
+      bassViewOffset = 32;
+      bassBar34.classList.add("active");
+      bassBar12.classList.remove("active");
+      renderSeqGrid(tbGridEl, bassState, "bass", 32);
+    });
+    leadBar12.addEventListener("click", () => {
+      leadViewOffset = 0;
+      leadBar12.classList.add("active");
+      leadBar34.classList.remove("active");
+      renderSeqGrid(leadGridEl, leadState, "lead", 0);
+    });
+    leadBar34.addEventListener("click", () => {
+      leadViewOffset = 32;
+      leadBar34.classList.add("active");
+      leadBar12.classList.remove("active");
+      renderSeqGrid(leadGridEl, leadState, "lead", 32);
+    });
+    pianoBar12.addEventListener("click", () => {
+      pianoViewOffset = 0;
+      pianoBar12.classList.add("active");
+      pianoBar34.classList.remove("active");
+      renderSeqGrid(pianoGridEl, pianoState, "piano", 0);
+    });
+    pianoBar34.addEventListener("click", () => {
+      pianoViewOffset = 32;
+      pianoBar34.classList.add("active");
+      pianoBar12.classList.remove("active");
+      renderSeqGrid(pianoGridEl, pianoState, "piano", 32);
     });
 
     // ---------- transport / scheduler ----------
@@ -3106,6 +3390,7 @@
     let drumStep = 0;
     let bassStep = 0;
     let leadStep = 0;
+    let pianoStep = 0;
     let nextTime = 0;
     let timer = null;
     let rafId = null;
@@ -3123,7 +3408,7 @@
       return 440 * Math.pow(2, (midi - 69) / 12);
     }
 
-    // BASS plays every 16th note step
+    // BASS plays every 16th note step (64 steps = 4 bars)
     function scheduleBass(step16, t){
       ensureSynths();
 
@@ -3135,11 +3420,11 @@
         const baseCut = clamp(+cutEl.value || 0, 0, 1);
         bassSynth.trigger({ freq, time:t, decay, gate:0.55, envAmt, baseCut01: baseCut, release:0.10, vel:1.0 });
       }
-      bassStep = (bassStep + 1) % 16;
+      bassStep = (bassStep + 1) % 64;
       applyBassParams(false);
     }
 
-    // LEAD plays every 16th note step
+    // LEAD plays every 16th note step (64 steps = 4 bars)
     function scheduleLead(step16, t){
       ensureSynths();
 
@@ -3151,8 +3436,22 @@
         const gate = clamp(+lGateEl.value || 0.55, 0.10, 1.0);
         leadSynth.trigger({ freq, time:t, decay:0.22, gate, envAmt, baseCut01: baseCut, release:0.11, vel:1.0 });
       }
-      leadStep = (leadStep + 1) % 16;
+      leadStep = (leadStep + 1) % 64;
       applyLeadParams(false);
+    }
+
+    // PIANO plays every 16th note step (64 steps = 4 bars)
+    function schedulePiano(step16, t){
+      ensureSynths();
+
+      const p = pianoState.steps[pianoStep];
+      if(p.note){
+        const freq = hzForNote(p.note, p.oct + 1);
+        const vol = clamp(+pianoVolEl.value || 0.7, 0, 1);
+        pianoSynth.trigger({ freq, time:t, vel: vol });
+        pianoSynth.setReverb(clamp(+pianoReverbEl.value || 0.3, 0, 1));
+      }
+      pianoStep = (pianoStep + 1) % 64;
     }
 
     var pendingRecordingUI = null;
@@ -3205,6 +3504,8 @@
       scheduleBass(stepIndex, time);
       // lead runs 2× tempo
       scheduleLead(stepIndex, time);
+      // piano
+      schedulePiano(stepIndex, time);
     }
 
     function scheduler(){
@@ -3267,6 +3568,7 @@
       drumStep = 0;
       bassStep = 0;
       leadStep = 0;
+      pianoStep = 0;
       currentBar = 0; // Will become 1 at first step 0
       loopBarsPlayed = 0; // Reset - loop will start fresh at step 0
       
@@ -3336,7 +3638,7 @@
     const loadFileBtn = document.getElementById("loadFileBtn");
     const loadFileInput = document.getElementById("loadFileInput");
 
-    const STORE_KEY = "mm_drum_bass_lead_mixer_Anatural_v3_16step";
+    const STORE_KEY = "mm_drum_bass_lead_piano_mixer_Anatural_v4_64step";
 
     let saveTimer=null;
     let dirty=false;
@@ -3366,13 +3668,15 @@
         drum: tracks.map(t=>({ key:t.key, pattern:[...t.pattern], vol:+t.vol })),
         bassState,
         leadState,
+        pianoState,
         params:{
           bass:{ cut:+cutEl.value, res:+resEl.value, env:+envEl.value, dec:+bDecayEl.value, mix:+dMixEl.value, fb:+dFbEl.value },
           lead:{ cut:+lCutEl.value, res:+lResEl.value, env:+lEnvEl.value, gate:+lGateEl.value, mix:+lMixEl.value, fb:+lFbEl.value },
+          piano:{ vol:+pianoVolEl.value, reverb:+pianoReverbEl.value },
           mixer:{
-            dV:+mDrumVolEl.value, bV:+mBassVolEl.value, lV:+mLeadVolEl.value,
-            dF:+mDrumLPFEl.value, bF:+mBassLPFEl.value, lF:+mLeadLPFEl.value,
-            dm:mute.drums, bm:mute.bass, lm:mute.lead
+            dV:+mDrumVolEl.value, bV:+mBassVolEl.value, lV:+mLeadVolEl.value, pV:+mPianoVolEl.value,
+            dF:+mDrumLPFEl.value, bF:+mBassLPFEl.value, lF:+mLeadLPFEl.value, pF:+mPianoLPFEl.value,
+            dm:mute.drums, bm:mute.bass, lm:mute.lead, pm:mute.piano
           },
           samp:{
             s1Mix:+s1MixEl.value, s1Fb:+s1FbEl.value, s1Pitch:+s1PitchEl.value,
@@ -3411,13 +3715,18 @@
 
       if(st.bassState){
         bassState = st.bassState;
-        // Ensure 16 steps (upgrade from old 8-step saves)
-        while(bassState.steps.length < 16) bassState.steps.push({ note:null, oct:0 });
+        // Ensure 64 steps (upgrade from old saves)
+        while(bassState.steps.length < 64) bassState.steps.push({ note:null, oct:0 });
       }
       if(st.leadState){
         leadState = st.leadState;
-        // Ensure 16 steps (upgrade from old 8-step saves)
-        while(leadState.steps.length < 16) leadState.steps.push({ note:null, oct:0 });
+        // Ensure 64 steps (upgrade from old saves)
+        while(leadState.steps.length < 64) leadState.steps.push({ note:null, oct:0 });
+      }
+      if(st.pianoState){
+        pianoState = st.pianoState;
+        // Ensure 64 steps
+        while(pianoState.steps.length < 64) pianoState.steps.push({ note:null, oct:0 });
       }
 
       if(st.params?.bass){
@@ -3442,20 +3751,30 @@
         mDrumVolEl.value = String(clamp(st.params.mixer.dV ?? +mDrumVolEl.value,0,1));
         mBassVolEl.value = String(clamp(st.params.mixer.bV ?? +mBassVolEl.value,0,1));
         mLeadVolEl.value = String(clamp(st.params.mixer.lV ?? +mLeadVolEl.value,0,1));
+        mPianoVolEl.value = String(clamp(st.params.mixer.pV ?? +mPianoVolEl.value,0,1));
         mDrumLPFEl.value = String(clamp(st.params.mixer.dF ?? +mDrumLPFEl.value,0,1));
         mBassLPFEl.value = String(clamp(st.params.mixer.bF ?? +mBassLPFEl.value,0,1));
         mLeadLPFEl.value = String(clamp(st.params.mixer.lF ?? +mLeadLPFEl.value,0,1));
+        mPianoLPFEl.value = String(clamp(st.params.mixer.pF ?? +mPianoLPFEl.value,0,1));
 
         mute.drums = !!st.params.mixer.dm;
         mute.bass  = !!st.params.mixer.bm;
         mute.lead  = !!st.params.mixer.lm;
+        mute.piano = !!st.params.mixer.pm;
 
         mDrumMuteBtn.classList.toggle("on", mute.drums);
         mBassMuteBtn.classList.toggle("on", mute.bass);
         mLeadMuteBtn.classList.toggle("on", mute.lead);
+        mPianoMuteBtn.classList.toggle("on", mute.piano);
         mDrumMuteBtn.textContent = mute.drums ? "Muted" : "Mute";
         mBassMuteBtn.textContent = mute.bass ? "Muted" : "Mute";
         mLeadMuteBtn.textContent = mute.lead ? "Muted" : "Mute";
+        mPianoMuteBtn.textContent = mute.piano ? "Muted" : "Mute";
+      }
+
+      if(st.params?.piano){
+        pianoVolEl.value = String(clamp(st.params.piano.vol ?? +pianoVolEl.value,0,1));
+        pianoReverbEl.value = String(clamp(st.params.piano.reverb ?? +pianoReverbEl.value,0,1));
       }
 
       if(st.params?.samp){
@@ -3469,8 +3788,9 @@
         s2PitchVal.textContent = fmtPitch(+s2PitchEl.value||0);
       }
 
-      renderSeqGrid(tbGridEl, bassState, "bass");
-      renderSeqGrid(leadGridEl, leadState, "lead");
+      renderSeqGrid(tbGridEl, bassState, "bass", bassViewOffset);
+      renderSeqGrid(leadGridEl, leadState, "lead", leadViewOffset);
+      renderSeqGrid(pianoGridEl, pianoState, "piano", pianoViewOffset);
       updateTrackLabels();
 
       if(ctx){
@@ -3516,8 +3836,9 @@
     hookMixer();
     buildHeader();
     buildGridOnce();
-    renderSeqGrid(tbGridEl, bassState, "bass");
-    renderSeqGrid(leadGridEl, leadState, "lead");
+    renderSeqGrid(tbGridEl, bassState, "bass", bassViewOffset);
+    renderSeqGrid(leadGridEl, leadState, "lead", leadViewOffset);
+    renderSeqGrid(pianoGridEl, pianoState, "piano", pianoViewOffset);
     updateLoopUI();
 
     loadAllSounds();
