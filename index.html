@@ -1089,39 +1089,47 @@
       recordingBarCount = 1;
       armedSlot = -1;
       
+      // Helper to get numeric value with proper 0 handling
+      function getVal(el, def){
+        var v = parseFloat(el.value);
+        return isFinite(v) ? v : def;
+      }
+      
       // Capture current pattern state as "MIDI" data
-      const patternData = {
-        drums: tracks.map(tr => ({
-          key: tr.key,
-          pattern: [...tr.pattern],
-          vol: tr.vol
-        })),
+      var patternData = {
+        drums: tracks.map(function(tr){
+          return {
+            key: tr.key,
+            pattern: tr.pattern.slice(),
+            vol: tr.vol
+          };
+        }),
         bass: {
-          steps: bassState.steps.map(s => ({ note: s.note, oct: s.oct }))
+          steps: bassState.steps.map(function(s){ return { note: s.note, oct: s.oct }; })
         },
         lead: {
-          steps: leadState.steps.map(s => ({ note: s.note, oct: s.oct }))
+          steps: leadState.steps.map(function(s){ return { note: s.note, oct: s.oct }; })
         },
         params: {
           bass: {
-            cut: parseFloat(cutEl.value) || 0,
-            res: parseFloat(resEl.value) || 0,
-            env: parseFloat(envEl.value) || 0,
-            dec: parseFloat(bDecayEl.value) || 0.28
+            cut: getVal(cutEl, 0),
+            res: getVal(resEl, 0),
+            env: getVal(envEl, 0),
+            dec: getVal(bDecayEl, 0.28)
           },
           lead: {
-            cut: parseFloat(lCutEl.value) || 0,
-            res: parseFloat(lResEl.value) || 0,
-            env: parseFloat(lEnvEl.value) || 0,
-            gate: parseFloat(lGateEl.value) || 0.55
+            cut: getVal(lCutEl, 0),
+            res: getVal(lResEl, 0),
+            env: getVal(lEnvEl, 0),
+            gate: getVal(lGateEl, 0.55)
           },
           mixer: {
-            dV: parseFloat(mDrumVolEl.value) || 0.8,
-            bV: parseFloat(mBassVolEl.value) || 0.75,
-            lV: parseFloat(mLeadVolEl.value) || 0.7,
-            dF: parseFloat(mDrumLPFEl.value) || 1,
-            bF: parseFloat(mBassLPFEl.value) || 1,
-            lF: parseFloat(mLeadLPFEl.value) || 1
+            dV: getVal(mDrumVolEl, 0.8),
+            bV: getVal(mBassVolEl, 0.75),
+            lV: getVal(mLeadVolEl, 0.7),
+            dF: getVal(mDrumLPFEl, 1),
+            bF: getVal(mBassLPFEl, 1),
+            lF: getVal(mLeadLPFEl, 1)
           },
           mutes: {
             drum: mute.drums ? 1 : 0,
@@ -1198,22 +1206,22 @@
       ensureSynths();
       
       // Apply mixer settings from the loop
-      const pattern = loopSlots[playingSlot];
+      var pattern = loopSlots[playingSlot];
       if(pattern) {
         applyProjectMixer(pattern);
       }
       
       loopStep = 0;
-      loopNextTime = ctx.currentTime + 0.05;
+      loopNextTime = ctx.currentTime + 0.02;
       
       function scheduleLoopStep(){
         if(playingSlot < 0) return;
         
-        const pattern = loopSlots[playingSlot];
+        var pattern = loopSlots[playingSlot];
         if(!pattern) return;
         
-        const stepDur = sixteenthSec();
-        const lookAhead = 0.1;
+        var stepDur = sixteenthSec();
+        var lookAhead = 0.1;
         
         while(loopNextTime < ctx.currentTime + lookAhead){
           playLoopStep(pattern, loopStep, loopNextTime);
@@ -1224,10 +1232,16 @@
             loopBarsPlayed++;
             if(loopBarsPlayed > 4){
               loopBarsPlayed = 1;
+              // Check for pending loop switch
               if(pendingPlaySlot >= 0){
                 playingSlot = pendingPlaySlot;
                 pendingPlaySlot = -1;
-                setStatus(`Playing Loop ${playingSlot + 1}`);
+                // Apply new loop's mixer settings immediately
+                var newPattern = loopSlots[playingSlot];
+                if(newPattern) {
+                  applyProjectMixer(newPattern);
+                }
+                setStatus("Playing Loop " + (playingSlot + 1));
               }
             }
             updateLoopUI();
@@ -1236,7 +1250,7 @@
           loopNextTime += stepDur;
         }
         
-        loopScheduler = setTimeout(scheduleLoopStep, 25);
+        loopScheduler = setTimeout(scheduleLoopStep, 20);
       }
       
       scheduleLoopStep();
@@ -1255,13 +1269,14 @@
       
       // Play drums
       if(pattern.drums){
-        for(const drumTrack of pattern.drums){
+        for(var i = 0; i < pattern.drums.length; i++){
+          var drumTrack = pattern.drums[i];
           if(drumTrack.pattern && drumTrack.pattern[stepIndex]){
-            const tr = tracks.find(t => t.key === drumTrack.key);
+            var tr = tracks.find(function(t){ return t.key === drumTrack.key; });
             if(tr && tr.buffer){
               if(drumTrack.key === "kick") triggerSidechain(time);
               
-              const g = ensureTrackGain(drumTrack.key);
+              var g = ensureTrackGain(drumTrack.key);
               setTrackGain(drumTrack.key, drumTrack.vol || 0.8, true);
               
               if(tr.isSampler){
@@ -1276,23 +1291,23 @@
       }
       
       // Get params with safe defaults
-      const bp = (pattern.params && pattern.params.bass) || {};
-      const lp = (pattern.params && pattern.params.lead) || {};
+      var bp = (pattern.params && pattern.params.bass) || {};
+      var lp = (pattern.params && pattern.params.lead) || {};
       
       // Safe number function
       function safeNum(val, def){
-        const n = Number(val);
+        var n = Number(val);
         return isFinite(n) ? n : def;
       }
       
-      // Play bass
-      if(pattern.bass && pattern.bass.steps){
-        const bassData = pattern.bass.steps[stepIndex];
-        if(bassData && bassData.note && typeof bassData.note === 'string'){
-          const freq = hzForNote(bassData.note, safeNum(bassData.oct, 0));
-          if(isFinite(freq) && freq > 0){
+      // Play bass - use octave directly (no +1)
+      if(pattern.bass && pattern.bass.steps && pattern.bass.steps[stepIndex]){
+        var bassData = pattern.bass.steps[stepIndex];
+        if(bassData.note){
+          var bassFreq = hzForNote(bassData.note, safeNum(bassData.oct, 0));
+          if(isFinite(bassFreq) && bassFreq > 0){
             bassSynth.trigger({
-              freq: freq,
+              freq: bassFreq,
               time: time,
               decay: safeNum(bp.dec, 0.28),
               gate: 0.55,
@@ -1305,14 +1320,14 @@
         }
       }
       
-      // Play lead
-      if(pattern.lead && pattern.lead.steps){
-        const leadData = pattern.lead.steps[stepIndex];
-        if(leadData && leadData.note && typeof leadData.note === 'string'){
-          const freq = hzForNote(leadData.note, safeNum(leadData.oct, 0) + 1);
-          if(isFinite(freq) && freq > 0){
+      // Play lead - add +1 octave (matches original scheduleLead)
+      if(pattern.lead && pattern.lead.steps && pattern.lead.steps[stepIndex]){
+        var leadData = pattern.lead.steps[stepIndex];
+        if(leadData.note){
+          var leadFreq = hzForNote(leadData.note, safeNum(leadData.oct, 0) + 1);
+          if(isFinite(leadFreq) && leadFreq > 0){
             leadSynth.trigger({
-              freq: freq,
+              freq: leadFreq,
               time: time,
               decay: 0.22,
               gate: safeNum(lp.gate, 0.55),
@@ -1671,33 +1686,38 @@
     
     // Generate compact project data
     function getProjectData(){
+      function getVal(el){
+        var v = parseFloat(el.value);
+        return isFinite(v) ? Math.round(v * 100) / 100 : 0;
+      }
+      
       return {
         t: tempo(),
-        dr: tracks.map(tr => {
-          let bits = 0;
-          for(let i = 0; i < 16; i++) if(tr.pattern[i]) bits |= (1 << i);
+        dr: tracks.map(function(tr){
+          var bits = 0;
+          for(var i = 0; i < 16; i++) if(tr.pattern[i]) bits |= (1 << i);
           return bits.toString(16).padStart(4, '0');
         }).join(''),
-        dv: tracks.map(tr => Math.round(tr.vol * 100) / 100), // drum volumes
-        ba: bassState.steps.map(s => s.note ? s.note[0] + s.oct : '--').join(''),
-        le: leadState.steps.map(s => s.note ? s.note[0] + s.oct : '--').join(''),
+        dv: tracks.map(function(tr){ return Math.round(tr.vol * 100) / 100; }),
+        ba: bassState.steps.map(function(s){ return s.note ? s.note[0] + s.oct : '--'; }).join(''),
+        le: leadState.steps.map(function(s){ return s.note ? s.note[0] + s.oct : '--'; }).join(''),
         p: [
-          Math.round(parseFloat(cutEl.value) * 100) / 100,
-          Math.round(parseFloat(resEl.value) * 100) / 100,
-          Math.round(parseFloat(envEl.value) * 100) / 100,
-          Math.round(parseFloat(bDecayEl.value) * 100) / 100,
-          Math.round(parseFloat(lCutEl.value) * 100) / 100,
-          Math.round(parseFloat(lResEl.value) * 100) / 100,
-          Math.round(parseFloat(lEnvEl.value) * 100) / 100,
-          Math.round(parseFloat(lGateEl.value) * 100) / 100
+          getVal(cutEl),
+          getVal(resEl),
+          getVal(envEl),
+          getVal(bDecayEl),
+          getVal(lCutEl),
+          getVal(lResEl),
+          getVal(lEnvEl),
+          getVal(lGateEl)
         ],
         m: [
-          Math.round(parseFloat(mDrumVolEl.value) * 100) / 100,
-          Math.round(parseFloat(mBassVolEl.value) * 100) / 100,
-          Math.round(parseFloat(mLeadVolEl.value) * 100) / 100,
-          Math.round(parseFloat(mDrumLPFEl.value) * 100) / 100,
-          Math.round(parseFloat(mBassLPFEl.value) * 100) / 100,
-          Math.round(parseFloat(mLeadLPFEl.value) * 100) / 100
+          getVal(mDrumVolEl),
+          getVal(mBassVolEl),
+          getVal(mLeadVolEl),
+          getVal(mDrumLPFEl),
+          getVal(mBassLPFEl),
+          getVal(mLeadLPFEl)
         ],
         mt: [
           mute.drums ? 1 : 0,
@@ -1801,22 +1821,22 @@
           ba: slot.bass && slot.bass.steps ? slot.bass.steps.map(function(s){ return s.note ? s.note[0] + (s.oct || 0) : '--'; }).join('') : '',
           le: slot.lead && slot.lead.steps ? slot.lead.steps.map(function(s){ return s.note ? s.note[0] + (s.oct || 0) : '--'; }).join('') : '',
           p: slot.params ? [
-            (slot.params.bass && slot.params.bass.cut) || 0,
-            (slot.params.bass && slot.params.bass.res) || 0,
-            (slot.params.bass && slot.params.bass.env) || 0,
-            (slot.params.bass && slot.params.bass.dec) || 0.28,
-            (slot.params.lead && slot.params.lead.cut) || 0,
-            (slot.params.lead && slot.params.lead.res) || 0,
-            (slot.params.lead && slot.params.lead.env) || 0,
-            (slot.params.lead && slot.params.lead.gate) || 0.55
+            (slot.params.bass && isFinite(slot.params.bass.cut)) ? slot.params.bass.cut : 0,
+            (slot.params.bass && isFinite(slot.params.bass.res)) ? slot.params.bass.res : 0,
+            (slot.params.bass && isFinite(slot.params.bass.env)) ? slot.params.bass.env : 0,
+            (slot.params.bass && isFinite(slot.params.bass.dec)) ? slot.params.bass.dec : 0.28,
+            (slot.params.lead && isFinite(slot.params.lead.cut)) ? slot.params.lead.cut : 0,
+            (slot.params.lead && isFinite(slot.params.lead.res)) ? slot.params.lead.res : 0,
+            (slot.params.lead && isFinite(slot.params.lead.env)) ? slot.params.lead.env : 0,
+            (slot.params.lead && isFinite(slot.params.lead.gate)) ? slot.params.lead.gate : 0.55
           ] : [0,0,0,0.28,0,0,0,0.55],
           m: slot.params && slot.params.mixer ? [
-            slot.params.mixer.dV || 0.8,
-            slot.params.mixer.bV || 0.75,
-            slot.params.mixer.lV || 0.7,
-            slot.params.mixer.dF || 1,
-            slot.params.mixer.bF || 1,
-            slot.params.mixer.lF || 1
+            isFinite(slot.params.mixer.dV) ? slot.params.mixer.dV : 0.8,
+            isFinite(slot.params.mixer.bV) ? slot.params.mixer.bV : 0.75,
+            isFinite(slot.params.mixer.lV) ? slot.params.mixer.lV : 0.7,
+            isFinite(slot.params.mixer.dF) ? slot.params.mixer.dF : 1,
+            isFinite(slot.params.mixer.bF) ? slot.params.mixer.bF : 1,
+            isFinite(slot.params.mixer.lF) ? slot.params.mixer.lF : 1
           ] : [0.8,0.75,0.7,1,1,1],
           mt: slot.params && slot.params.mutes ? [
             slot.params.mutes.drum ? 1 : 0,
