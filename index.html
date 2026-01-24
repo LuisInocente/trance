@@ -691,7 +691,7 @@
         <button class="loopControlBtn" id="loopClearBtn">Clear</button>
         <button class="loopControlBtn" id="shareBtn" style="background:#8b5cf6;color:#fff;border-color:#7c3aed;">Share</button>
         <button class="loopControlBtn" id="loadShareBtn" style="background:#3b82f6;color:#fff;border-color:#2563eb;">Load</button>
-        <button class="loopControlBtn" id="hubBtn" style="background:#22c55e;color:#fff;border-color:#16a34a;">🏫 Hub</button>
+        <button class="loopControlBtn" id="hubBtn" style="background:#22c55e;color:#fff;border-color:#16a34a;">Hub</button>
       </div>
     </div>
   </header>
@@ -707,7 +707,7 @@
         
         <label style="display:block;margin-bottom:8px;color:var(--muted);font-size:12px;">Share Code:</label>
         <textarea id="shareCode" readonly style="width:100%;height:80px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:monospace;font-size:11px;resize:none;"></textarea>
-        <button id="copyCodeBtn" style="margin-top:8px;padding:10px 20px;background:#22c55e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">📋 Copy Code</button>
+        <button id="copyCodeBtn" style="margin-top:8px;padding:10px 20px;background:#22c55e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">Copy Code</button>
       </div>
       
       <div id="shareImportSection" style="display:none;">
@@ -728,7 +728,7 @@
   <!-- Hub Modal -->
   <div id="hubModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:100;align-items:center;justify-content:center;">
     <div style="background:var(--card);border-radius:16px;padding:24px;max-width:600px;width:95%;max-height:90vh;overflow-y:auto;">
-      <h2 style="margin:0 0 8px;font-size:20px;color:var(--text);">🏫 Classroom Hub</h2>
+      <h2 style="margin:0 0 8px;font-size:20px;color:var(--text);">Classroom Hub</h2>
       
       <!-- Server URL Setting -->
       <div style="background:#1e3a5f;border-radius:8px;padding:10px;margin-bottom:16px;">
@@ -742,25 +742,25 @@
       
       <!-- Student Section -->
       <div id="hubStudentSection" style="background:var(--bg);border-radius:12px;padding:16px;margin-bottom:16px;">
-        <h3 style="margin:0 0 12px;font-size:14px;color:#22c55e;">📝 Submit Your Music</h3>
+        <h3 style="margin:0 0 12px;font-size:14px;color:#22c55e;">Submit Your Music</h3>
         <input type="text" id="hubStudentName" placeholder="Enter your name" style="width:100%;padding:12px;border-radius:8px;border:2px solid var(--border);background:var(--card);color:var(--text);font-size:16px;margin-bottom:12px;">
-        <button id="hubSubmitBtn" style="width:100%;padding:14px;background:#22c55e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:16px;">🎵 Submit to Hub</button>
+        <button id="hubSubmitBtn" style="width:100%;padding:14px;background:#22c55e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:16px;">Submit to Hub</button>
         <div id="hubSubmitStatus" style="margin-top:8px;font-size:12px;color:var(--muted);text-align:center;"></div>
       </div>
       
       <!-- Teacher Section -->
       <div id="hubTeacherSection" style="background:var(--bg);border-radius:12px;padding:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <h3 style="margin:0;font-size:14px;color:#3b82f6;">🎧 Class Submissions (<span id="hubCount">0</span>)</h3>
-          <button id="hubRefreshBtn" style="padding:6px 12px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🔄 Refresh</button>
+          <h3 style="margin:0;font-size:14px;color:#3b82f6;">Class Submissions (<span id="hubCount">0</span>)</h3>
+          <button id="hubRefreshBtn" style="padding:6px 12px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Refresh</button>
         </div>
         <div id="hubProjectList" style="max-height:300px;overflow-y:auto;">
           <div style="color:var(--muted);text-align:center;padding:20px;font-size:13px;">Set server URL and click Refresh</div>
         </div>
         <div style="margin-top:12px;display:flex;gap:8px;">
           <button id="hubPlayAllBtn" style="flex:1;padding:10px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">▶ Play All</button>
-          <button id="hubStopBtn" style="padding:10px 16px;background:#f59e0b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;">⏹ Stop</button>
-          <button id="hubClearAllBtn" style="padding:10px 16px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;">🗑</button>
+          <button id="hubStopBtn" style="padding:10px 16px;background:#f59e0b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;">Stop</button>
+          <button id="hubClearAllBtn" style="padding:10px 16px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;"></button>
         </div>
       </div>
       
@@ -1114,6 +1114,14 @@
             res: parseFloat(lResEl.value) || 0,
             env: parseFloat(lEnvEl.value) || 0,
             gate: parseFloat(lGateEl.value) || 0.55
+          },
+          mixer: {
+            dV: parseFloat(mDrumVolEl.value) || 0.8,
+            bV: parseFloat(mBassVolEl.value) || 0.75,
+            lV: parseFloat(mLeadVolEl.value) || 0.7,
+            dF: parseFloat(mDrumLPFEl.value) || 1,
+            bF: parseFloat(mBassLPFEl.value) || 1,
+            lF: parseFloat(mLeadLPFEl.value) || 1
           }
         },
         tempo: tempo()
@@ -1122,7 +1130,7 @@
       loopSlots[slot] = patternData;
       
       updateLoopUI();
-      setStatus(`Recording Loop ${slot + 1}... (Bar 1/4)`);
+      setStatus("Recording Loop " + (slot + 1) + "... (Bar 1/4)");
     }
 
     function incrementBarCount(){
@@ -1137,7 +1145,7 @@
       if(recordingSlot < 0) return;
       
       const slot = recordingSlot;
-      setStatus(`Loop ${slot + 1} recorded! ✅`);
+      setStatus("Loop " + (slot + 1) + " recorded!");
       
       recordingSlot = -1;
       recordingBarCount = 0;
@@ -1183,6 +1191,19 @@
       if(playingSlot < 0 || !loopSlots[playingSlot]) return;
       
       ensureSynths();
+      
+      // Apply mixer settings from the loop
+      const pattern = loopSlots[playingSlot];
+      if(pattern && pattern.params && pattern.params.mixer){
+        const m = pattern.params.mixer;
+        if(m.dV !== undefined) mDrumVolEl.value = m.dV;
+        if(m.bV !== undefined) mBassVolEl.value = m.bV;
+        if(m.lV !== undefined) mLeadVolEl.value = m.lV;
+        if(m.dF !== undefined) mDrumLPFEl.value = m.dF;
+        if(m.bF !== undefined) mBassLPFEl.value = m.bF;
+        if(m.lF !== undefined) mLeadLPFEl.value = m.lF;
+        applyMixerNow(true);
+      }
       
       loopStep = 0;
       loopNextTime = ctx.currentTime + 0.05;
@@ -1552,12 +1573,12 @@
       try {
         await navigator.clipboard.writeText(shareCode.value);
         copyCodeBtn.textContent = "✓ Copied!";
-        setTimeout(() => { copyCodeBtn.textContent = "📋 Copy Code"; }, 2000);
+        setTimeout(() => { copyCodeBtn.textContent = "Copy Code"; }, 2000);
       } catch(e) {
         shareCode.select();
         document.execCommand("copy");
         copyCodeBtn.textContent = "✓ Copied!";
-        setTimeout(() => { copyCodeBtn.textContent = "📋 Copy Code"; }, 2000);
+        setTimeout(() => { copyCodeBtn.textContent = "Copy Code"; }, 2000);
       }
     });
 
@@ -1565,7 +1586,7 @@
       const data = parseShareCode(loadCode.value);
       if(data){
         loadedProjectInfo.style.display = "block";
-        loadedProjectName.textContent = "🎵 " + (data.name || "Unnamed Project");
+        loadedProjectName.textContent = data.name || "Unnamed Project";
         loadedProjectDetails.textContent = `Tempo: ${data.tempo || 120} BPM`;
       } else {
         loadedProjectInfo.style.display = "none";
@@ -1634,7 +1655,7 @@
     hubSaveUrl.addEventListener("click", () => {
       const url = hubServerUrl.value.trim();
       localStorage.setItem("musicHubServerUrl", url);
-      hubConnectionStatus.textContent = "✅ URL saved! Click Refresh to test.";
+      hubConnectionStatus.textContent = "URL saved! Click Refresh to test.";
       hubConnectionStatus.style.color = "#4ade80";
     });
     
@@ -1650,14 +1671,22 @@
         ba: bassState.steps.map(s => s.note ? s.note[0] + s.oct : '--').join(''),
         le: leadState.steps.map(s => s.note ? s.note[0] + s.oct : '--').join(''),
         p: [
-          Math.round(parseFloat(cutEl.value) * 10) / 10,
-          Math.round(parseFloat(resEl.value) * 10) / 10,
-          Math.round(parseFloat(envEl.value) * 10) / 10,
+          Math.round(parseFloat(cutEl.value) * 100) / 100,
+          Math.round(parseFloat(resEl.value) * 100) / 100,
+          Math.round(parseFloat(envEl.value) * 100) / 100,
           Math.round(parseFloat(bDecayEl.value) * 100) / 100,
-          Math.round(parseFloat(lCutEl.value) * 10) / 10,
-          Math.round(parseFloat(lResEl.value) * 10) / 10,
-          Math.round(parseFloat(lEnvEl.value) * 10) / 10,
+          Math.round(parseFloat(lCutEl.value) * 100) / 100,
+          Math.round(parseFloat(lResEl.value) * 100) / 100,
+          Math.round(parseFloat(lEnvEl.value) * 100) / 100,
           Math.round(parseFloat(lGateEl.value) * 100) / 100
+        ],
+        m: [
+          Math.round(parseFloat(mDrumVolEl.value) * 100) / 100,
+          Math.round(parseFloat(mBassVolEl.value) * 100) / 100,
+          Math.round(parseFloat(mLeadVolEl.value) * 100) / 100,
+          Math.round(parseFloat(mDrumLPFEl.value) * 100) / 100,
+          Math.round(parseFloat(mBassLPFEl.value) * 100) / 100,
+          Math.round(parseFloat(mLeadLPFEl.value) * 100) / 100
         ]
       };
     }
@@ -1690,6 +1719,7 @@
       }
       
       const p = d.p || [0,0,0,0.28,0,0,0,0.55];
+      const m = d.m || [0.8,0.75,0.7,1,1,1];
       
       return {
         tempo: d.t || 120,
@@ -1702,7 +1732,8 @@
         lead: { steps: leadSteps },
         params: {
           bass: { cut: p[0], res: p[1], env: p[2], dec: p[3] },
-          lead: { cut: p[4], res: p[5], env: p[6], gate: p[7] }
+          lead: { cut: p[4], res: p[5], env: p[6], gate: p[7] },
+          mixer: { dV: m[0], bV: m[1], lV: m[2], dF: m[3], bF: m[4], lF: m[5] }
         }
       };
     }
@@ -1713,18 +1744,18 @@
       const name = hubStudentName.value.trim();
       
       if(!url){
-        hubSubmitStatus.textContent = "❌ Set server URL first!";
+        hubSubmitStatus.textContent = "Set server URL first!";
         hubSubmitStatus.style.color = "#f87171";
         return;
       }
       
       if(!name){
-        hubSubmitStatus.textContent = "❌ Enter your name!";
+        hubSubmitStatus.textContent = "Enter your name!";
         hubSubmitStatus.style.color = "#f87171";
         return;
       }
       
-      hubSubmitStatus.textContent = "⏳ Submitting...";
+      hubSubmitStatus.textContent = "Submitting...";
       hubSubmitStatus.style.color = "#fbbf24";
       
       try {
@@ -1741,15 +1772,15 @@
         const result = await res.json();
         
         if(result.success){
-          hubSubmitStatus.textContent = `✅ "${name}" submitted!`;
+          hubSubmitStatus.textContent = '"' + name + '" submitted!';
           hubSubmitStatus.style.color = "#4ade80";
           localStorage.setItem("musicHubStudentName", name);
         } else {
-          hubSubmitStatus.textContent = `❌ ${result.error || 'Failed'}`;
+          hubSubmitStatus.textContent = `${result.error || 'Failed'}`;
           hubSubmitStatus.style.color = "#f87171";
         }
       } catch(e){
-        hubSubmitStatus.textContent = `❌ Connection error`;
+        hubSubmitStatus.textContent = `Connection error`;
         hubSubmitStatus.style.color = "#f87171";
       }
     });
@@ -1763,12 +1794,12 @@
       
       if(!url){
         hubProjectList.innerHTML = '<div style="color:#f87171;text-align:center;padding:20px;">Set server URL first</div>';
-        hubConnectionStatus.textContent = "❌ No server URL set";
+        hubConnectionStatus.textContent = "No server URL set";
         hubConnectionStatus.style.color = "#f87171";
         return;
       }
       
-      hubProjectList.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">⏳ Loading...</div>';
+      hubProjectList.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">Loading...</div>';
       
       try {
         const res = await fetch(url);
@@ -1776,14 +1807,14 @@
         
         if(result.success){
           hubProjects = result.submissions || [];
-          hubConnectionStatus.textContent = `✅ Connected`;
+          hubConnectionStatus.textContent = `Connected`;
           hubConnectionStatus.style.color = "#4ade80";
           renderHubProjects();
         } else {
           hubProjectList.innerHTML = `<div style="color:#f87171;text-align:center;padding:20px;">Error: ${result.error}</div>`;
         }
       } catch(e){
-        hubConnectionStatus.textContent = `❌ Connection failed`;
+        hubConnectionStatus.textContent = `Connection failed`;
         hubConnectionStatus.style.color = "#f87171";
         hubProjectList.innerHTML = '<div style="color:#f87171;text-align:center;padding:20px;">Cannot connect to server</div>';
       }
@@ -1809,7 +1840,7 @@
         const time = s.time ? new Date(s.time).toLocaleTimeString() : '';
         return `
           <div style="display:flex;align-items:center;gap:8px;padding:10px;background:var(--card);border-radius:8px;margin-bottom:6px;" id="hubItem${origIndex}">
-            <span style="font-size:20px;">🎵</span>
+            <span style="font-size:16px;color:var(--muted);">♪</span>
             <div style="flex:1;min-width:0;">
               <div style="font-weight:bold;color:var(--text);overflow:hidden;text-overflow:ellipsis;">${escapeHtml(s.name)}</div>
               <div style="font-size:10px;color:var(--muted);">${time}</div>
@@ -1837,19 +1868,24 @@
       loopSlots[0] = data;
       stopLoopPlayback();
       
+      // Apply mixer settings from the project
+      applyProjectMixer(data);
+      
       hubModal.style.display = "none";
       
       // Show student name prominently
       showStudentName(project.name);
       
-      // Play 4 bars
+      // Play 4 bars with proper scheduler
       let barsPlayed = 0;
       let step = 0;
       let nextTime = ctx.currentTime + 0.05;
+      let hubTimer = null;
       
       function scheduleProjectStep(){
         if(!hubPlaying) {
           hideStudentName();
+          if(hubTimer) clearTimeout(hubTimer);
           return;
         }
         
@@ -1865,24 +1901,41 @@
           if(step >= 16){
             step = 0;
             barsPlayed++;
-            setStatus(`🎵 ${project.name} - Bar ${barsPlayed}/4`);
+            setStatus(project.name + " - Bar " + barsPlayed + "/4");
             
             if(barsPlayed >= 4){
               hubPlaying = false;
               hideStudentName();
-              setStatus(`✅ Finished: ${project.name}`);
+              setStatus("Finished: " + project.name);
+              if(hubTimer) clearTimeout(hubTimer);
               return;
             }
           }
           nextTime += stepDur;
         }
         
-        setTimeout(scheduleProjectStep, 25);
+        hubTimer = setTimeout(scheduleProjectStep, 20);
       }
       
-      setStatus(`🎵 Playing: ${project.name}`);
+      setStatus("Playing: " + project.name);
       scheduleProjectStep();
     };
+    
+    // Apply mixer settings from project data
+    function applyProjectMixer(data){
+      if(!data || !data.params) return;
+      
+      const m = data.params.mixer;
+      if(m){
+        if(m.dV !== undefined) mDrumVolEl.value = m.dV;
+        if(m.bV !== undefined) mBassVolEl.value = m.bV;
+        if(m.lV !== undefined) mLeadVolEl.value = m.lV;
+        if(m.dF !== undefined) mDrumLPFEl.value = m.dF;
+        if(m.bF !== undefined) mBassLPFEl.value = m.bF;
+        if(m.lF !== undefined) mLeadLPFEl.value = m.lF;
+        applyMixerNow(true);
+      }
+    }
     
     // Big student name display
     function showStudentName(name){
@@ -1920,7 +1973,7 @@
           document.head.appendChild(style);
         }
       }
-      overlay.textContent = "🎵 " + name;
+      overlay.textContent = name;
       overlay.style.display = "block";
     }
     
@@ -1957,7 +2010,7 @@
         hubPlayIndex = -1;
         stopLoopPlayback();
         hideStudentName();
-        setStatus("🎉 Finished playing all!");
+        setStatus("Finished playing all!");
         return;
       }
       
@@ -1975,17 +2028,22 @@
       
       loopSlots[0] = data;
       
+      // Apply mixer settings
+      applyProjectMixer(data);
+      
       // Show student name prominently
-      showStudentName(project.name + ` (${hubPlayIndex + 1}/${hubProjects.length})`);
+      showStudentName(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ")");
       
       // Play 4 bars then move to next
       let barsPlayed = 0;
       let step = 0;
       let nextTime = ctx.currentTime + 0.05;
+      let hubTimer = null;
       
       function scheduleHubStep(){
         if(!hubPlaying) {
           hideStudentName();
+          if(hubTimer) clearTimeout(hubTimer);
           return;
         }
         
@@ -2001,10 +2059,11 @@
           if(step >= 16){
             step = 0;
             barsPlayed++;
-            setStatus(`🎵 ${project.name} (${hubPlayIndex + 1}/${hubProjects.length}) - Bar ${barsPlayed}/4`);
+            setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Bar " + barsPlayed + "/4");
             
             if(barsPlayed >= 4){
               hubPlayIndex++;
+              if(hubTimer) clearTimeout(hubTimer);
               setTimeout(playNextHubProject, 300);
               return;
             }
@@ -2012,10 +2071,10 @@
           nextTime += stepDur;
         }
         
-        setTimeout(scheduleHubStep, 25);
+        hubTimer = setTimeout(scheduleHubStep, 20);
       }
       
-      setStatus(`🎵 ${project.name} (${hubPlayIndex + 1}/${hubProjects.length})`);
+      setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ")");
       scheduleHubStep();
     }
     
@@ -2593,7 +2652,7 @@
         status.textContent = "No sample";
         tr.fileLabel = "No sample";
       }else{
-        status.textContent = "Sample ready ✅";
+        status.textContent = "Sample ready ";
         tr.fileLabel = "Recorded";
       }
       updateTrackLabels();
@@ -3472,7 +3531,7 @@
         const st = safeJSONParse(text);
         if(st) applyState(st);
         scheduleSave();
-        setStatus("Loaded ✅");
+        setStatus("Loaded ");
       }catch(err){
         console.error(err);
         setStatus("Load failed");
@@ -3494,7 +3553,7 @@
     const saved = loadSaved();
     if(saved){
       applyState(saved);
-      setStatus("Autosave loaded ✅");
+      setStatus("Autosave loaded ");
     }else{
       setStatus("Ready - Click a loop button to arm, then Play to record 4 bars!");
     }
