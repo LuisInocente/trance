@@ -373,8 +373,8 @@
       touch-action:manipulation;
     }
 
-    .row{ display:grid; grid-template-columns: 200px repeat(16,1fr); }
-    .row+.row{ border-top:1px solid var(--gridBorder); }
+    .row{ display:grid; grid-template-columns: 200px repeat(16,1fr); gap:2px; align-items:center; }
+    .row+.row{ border-top:none; margin-top:2px; }
 
     .trackCell{
       display:flex;
@@ -444,15 +444,16 @@
 
     .cell{
       height:28px;
-      border-left:1px solid var(--gridBorder);
+      border:1px solid var(--gridBorder);
+      border-radius:4px;
       display:flex; align-items:center; justify-content:center;
       background:var(--cellA);
       cursor:pointer;
       touch-action:manipulation;
       user-select:none;
     }
-    .cell.beatA{ background:#2a2a2a; }
-    .cell.beatB{ background:#1a1a1a; }
+    .cell.beatA{ background:#2a2a2a; border-color:#444; }
+    .cell.beatB{ background:#1a1a1a; border-color:#333; }
 
     .cell.playhead{
       outline:4px solid var(--playhead);
@@ -460,6 +461,7 @@
       box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.5);
     }
 
+    .cell.on{ border-color:transparent; }
     .cell.on.t1{ background:var(--t1); }
     .cell.on.t2{ background:var(--t2); }
     .cell.on.t3{ background:var(--t3); }
@@ -2261,8 +2263,130 @@
         if(switchToNextProject){
           hubPlayIndex++;
           if(hubTimer) clearTimeout(hubTimer);
-          // Small delay between students for name display
-          setTimeout(playNextHubProject, 150);
+          // Continue immediately with preserved timing
+          var savedNextTime = nextTime;
+          setTimeout(function(){
+            // Pass the preserved nextTime to maintain tight timing
+            playNextHubProjectSeamless(savedNextTime);
+          }, 0);
+          return;
+        }
+        
+        hubTimer = setTimeout(scheduleAllSlots, 20);
+      }
+      
+      setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop 1/" + totalLoops);
+      scheduleAllSlots();
+    }
+    
+    // Seamless version that preserves timing
+    async function playNextHubProjectSeamless(preservedNextTime){
+      if(!hubPlaying){
+        hideStudentName();
+        setStatus("Stopped");
+        return;
+      }
+      
+      // Loop back to first student when all have played
+      if(hubPlayIndex >= hubProjects.length){
+        hubPlayIndex = 0;
+      }
+      
+      const project = hubProjects[hubPlayIndex];
+      
+      await resumeAudio();
+      ensureSynths();
+      
+      // Parse slots
+      var projectSlots = [];
+      if(project.data && project.data.slots){
+        for(var i = 0; i < project.data.slots.length; i++){
+          if(project.data.slots[i]){
+            projectSlots.push(parseProjectData(project.data.slots[i]));
+          }
+        }
+      } else if(project.data){
+        var parsed = parseProjectData(project.data);
+        if(parsed) projectSlots.push(parsed);
+      }
+      
+      if(projectSlots.length === 0){
+        hubPlayIndex++;
+        playNextHubProjectSeamless(preservedNextTime);
+        return;
+      }
+      
+      showStudentName(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ")");
+      
+      var currentSlotIndex = 0;
+      var barsPlayed = 1;
+      var step = 0;
+      var nextTime = preservedNextTime; // Use preserved timing!
+      var hubTimer = null;
+      var totalLoops = projectSlots.length;
+      var currentPattern = projectSlots[0];
+      
+      loopSlots[0] = currentPattern;
+      applyProjectMixer(currentPattern, nextTime);
+      
+      function scheduleAllSlots(){
+        if(!hubPlaying){
+          hideStudentName();
+          if(hubTimer) clearTimeout(hubTimer);
+          return;
+        }
+        
+        var stepDur = sixteenthSec();
+        var statusMsg = null;
+        var switchToNextProject = false;
+        var switchTime = null;
+        var nextPattern = null;
+        
+        while(nextTime < ctx.currentTime + 0.1){
+          playLoopStep(currentPattern, step, nextTime);
+          
+          step++;
+          
+          if(step > 0 && step < 64 && step % 16 === 0){
+            barsPlayed++;
+            statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops + " - Bar " + barsPlayed + "/4";
+          }
+          
+          if(step >= 64){
+            step = 0;
+            barsPlayed = 1;
+            currentSlotIndex++;
+            
+            if(currentSlotIndex >= projectSlots.length){
+              switchToNextProject = true;
+              break;
+            }
+            
+            switchTime = nextTime;
+            nextPattern = projectSlots[currentSlotIndex];
+            currentPattern = nextPattern;
+            loopSlots[0] = currentPattern;
+            statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops;
+          }
+          
+          nextTime += stepDur;
+        }
+        
+        if(nextPattern && switchTime){
+          applyProjectMixer(nextPattern, switchTime);
+        }
+        
+        if(statusMsg){
+          requestAnimationFrame(function(){ setStatus(statusMsg); });
+        }
+        
+        if(switchToNextProject){
+          hubPlayIndex++;
+          if(hubTimer) clearTimeout(hubTimer);
+          var savedNextTime = nextTime;
+          setTimeout(function(){
+            playNextHubProjectSeamless(savedNextTime);
+          }, 0);
           return;
         }
         
