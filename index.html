@@ -1190,10 +1190,16 @@
       // Capture current pattern state as "MIDI" data
       var patternData = {
         drums: tracks.map(function(tr){
+          // Read volume directly from UI slider if available
+          var drumVol = tr.vol;
+          if(tr._ui && tr._ui.volEl){
+            var sliderVal = parseFloat(tr._ui.volEl.value);
+            if(isFinite(sliderVal)) drumVol = sliderVal;
+          }
           return {
             key: tr.key,
             pattern: tr.pattern.slice(),
-            vol: tr.vol
+            vol: drumVol
           };
         }),
         bass: {
@@ -1418,7 +1424,8 @@
               if(drumTrack.key === "kick") triggerSidechain(time);
               
               var g = ensureTrackGain(drumTrack.key);
-              setTrackGain(drumTrack.key, drumTrack.vol || 0.8, true);
+              var vol = (drumTrack.vol !== undefined && drumTrack.vol !== null) ? drumTrack.vol : 0.8;
+              setTrackGain(drumTrack.key, vol, true);
               
               if(tr.isSampler){
                 if(drumTrack.key === "sample1") playSampleNow(1, time);
@@ -1798,7 +1805,10 @@
             for(var i = 0; i < 16; i++) if(tr.pattern && tr.pattern[i]) bits |= (1 << i);
             return bits.toString(16).padStart(4, '0');
           }).join('') : '',
-          dv: slot.drums ? slot.drums.map(function(tr){ return Math.round((tr.vol || 0.8) * 100) / 100; }) : [],
+          dv: slot.drums ? slot.drums.map(function(tr){ 
+            var v = (tr.vol !== undefined && tr.vol !== null) ? tr.vol : 0.8;
+            return Math.round(v * 100) / 100; 
+          }) : [],
           ba: slot.bass && slot.bass.steps ? slot.bass.steps.map(function(s){ return s.note ? s.note[0] + encOct(s.oct) : '--'; }).join('') : '',
           le: slot.lead && slot.lead.steps ? slot.lead.steps.map(function(s){ return s.note ? s.note[0] + encOct(s.oct) : '--'; }).join('') : '',
           pi: slot.piano && slot.piano.steps ? encPianoSteps(slot.piano.steps) : [],
@@ -2037,7 +2047,21 @@
       const m = (data.params && data.params.mixer) || {};
       const mt = (data.params && data.params.mutes) || {};
       
-      // Update slider values (UI only, no audio)
+      // Update individual drum volume sliders and values
+      if(data.drums && Array.isArray(data.drums)){
+        for(var i = 0; i < data.drums.length; i++){
+          var drumData = data.drums[i];
+          var tr = tracksByKey.get(drumData.key);
+          if(tr && drumData.vol !== undefined){
+            tr.vol = drumData.vol;
+            if(tr._ui && tr._ui.volEl){
+              tr._ui.volEl.value = String(drumData.vol);
+            }
+          }
+        }
+      }
+      
+      // Update mixer slider values (UI only, no audio)
       if(isFinite(m.dV)) mDrumVolEl.value = m.dV;
       if(isFinite(m.bV)) mBassVolEl.value = m.bV;
       if(isFinite(m.lV)) mLeadVolEl.value = m.lV;
@@ -4097,6 +4121,17 @@
         bassState,
         leadState,
         pianoState,
+        loopSlots: loopSlots.map(function(slot){
+          if(!slot) return null;
+          return {
+            drums: slot.drums,
+            bass: slot.bass,
+            lead: slot.lead,
+            piano: slot.piano,
+            params: slot.params,
+            tempo: slot.tempo
+          };
+        }),
         params:{
           bass:{ cut:+cutEl.value, res:+resEl.value, env:+envEl.value, dec:+bDecayEl.value, mix:+dMixEl.value, fb:+dFbEl.value },
           lead:{ cut:+lCutEl.value, res:+lResEl.value, env:+lEnvEl.value, gate:+lGateEl.value, mix:+lMixEl.value, fb:+lFbEl.value },
@@ -4169,6 +4204,14 @@
             }
           }
         }
+      }
+
+      // Restore loop slots
+      if(Array.isArray(st.loopSlots)){
+        for(var i = 0; i < 4; i++){
+          loopSlots[i] = st.loopSlots[i] || null;
+        }
+        updateLoopUI();
       }
 
       if(st.params?.bass){
