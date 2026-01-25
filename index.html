@@ -34,6 +34,7 @@
 
       --bassOn:#991b1b;
       --leadOn:#7c3aed;
+      --pianoOn:#0369a1;
 
       --headerH:70px;
       --footerH:40px;
@@ -450,7 +451,8 @@
       touch-action:manipulation;
       user-select:none;
     }
-    .cell.alt{ background:var(--cellB); }
+    .cell.beatA{ background:#2a2a2a; }
+    .cell.beatB{ background:#1a1a1a; }
 
     .cell.playhead{
       outline:4px solid var(--playhead);
@@ -565,6 +567,14 @@
     .lead .tb_octBtn.on.oct-up{ background:#a855f7!important; border-color:#9333ea!important; color:#fff; }
     .lead .tb_octBtn.on.oct-mid{ background:var(--leadOn)!important; border-color:var(--leadOn)!important; color:#fff; }
     .lead .tb_octBtn.on.oct-down{ background:#4c1d95!important; border-color:#3b1578!important; color:#fff; }
+    .piano .tb_pad.on{ background:var(--pianoOn)!important; border-color:var(--pianoOn)!important; }
+    .piano .tb_octBtn.on.oct-up{ background:#0ea5e9!important; border-color:#0284c7!important; color:#fff; }
+    .piano .tb_octBtn.on.oct-mid{ background:var(--pianoOn)!important; border-color:var(--pianoOn)!important; color:#fff; }
+    .piano .tb_octBtn.on.oct-down{ background:#075985!important; border-color:#0c4a6e!important; color:#fff; }
+
+    /* Beat shading - alternating every 4 steps */
+    .tb_col.beatA .tb_pad.nat{ background:#484848; }
+    .tb_col.beatB .tb_pad.nat{ background:#383838; }
 
     /* Mixer */
     .mixerGrid{
@@ -2632,7 +2642,8 @@
 
         for(let s=0;s<16;s++){
           const cell = document.createElement("div");
-          cell.className = "cell" + ((((s+1)%2)?" alt":""));
+          const beatClass = (Math.floor(s / 4) % 2 === 0) ? "beatA" : "beatB";
+          cell.className = "cell " + beatClass;
           if(tr.pattern[s]){ cell.classList.add("on", tr.colorClass); }
 
           cell.dataset.track = tr.key;
@@ -3019,7 +3030,9 @@
       for(let i = 0; i < 32; i++){
         const s = offset + i;
         const col = document.createElement("div");
-        col.className = "tb_col";
+        // Add beat class for shading (steps 1-4 light, 5-8 dark, repeat)
+        const beatClass = (Math.floor(s / 4) % 2 === 0) ? "beatA" : "beatB";
+        col.className = "tb_col " + beatClass;
         // Highlight bar boundaries (every 16 steps)
         if(i === 16) col.style.borderLeft = "2px solid var(--accent)";
 
