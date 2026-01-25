@@ -1956,7 +1956,7 @@
       
       // Play through all slots with continuous timing
       var currentSlotIndex = 0;
-      var barsPlayed = 0;
+      var barsPlayed = 1;
       var step = 0;
       var nextTime = ctx.currentTime + 0.005;
       var hubTimer = null;
@@ -1980,31 +1980,36 @@
         var nextPattern = null;
         
         while(nextTime < ctx.currentTime + 0.1){
+          // Pass full step (0-63) for bass/lead/piano, drums use step % 16
           playLoopStep(currentPattern, step, nextTime);
           
           step++;
-          if(step >= 16){
-            step = 0;
+          
+          // Track bar progress (every 16 steps = 1 bar)
+          if(step > 0 && step < 64 && step % 16 === 0){
             barsPlayed++;
             statusMsg = project.name + " - Loop " + (currentSlotIndex + 1) + "/" + projectSlots.length + " - Bar " + barsPlayed + "/4";
-            
-            if(barsPlayed >= 4){
-              barsPlayed = 0;
-              currentSlotIndex++;
-              
-              // Loop back to first slot when all slots played
-              if(currentSlotIndex >= projectSlots.length){
-                currentSlotIndex = 0;
-              }
-              
-              // Switch to next slot without resetting timing
-              switchTime = nextTime;
-              nextPattern = projectSlots[currentSlotIndex];
-              currentPattern = nextPattern;
-              loopSlots[0] = currentPattern;
-              statusMsg = project.name + " - Loop " + (currentSlotIndex + 1) + "/" + projectSlots.length;
-            }
           }
+          
+          // After 64 steps (4 bars), move to next slot
+          if(step >= 64){
+            step = 0;
+            barsPlayed = 1;
+            currentSlotIndex++;
+            
+            // Loop back to first slot when all slots played
+            if(currentSlotIndex >= projectSlots.length){
+              currentSlotIndex = 0;
+            }
+            
+            // Switch to next slot without resetting timing
+            switchTime = nextTime;
+            nextPattern = projectSlots[currentSlotIndex];
+            currentPattern = nextPattern;
+            loopSlots[0] = currentPattern;
+            statusMsg = project.name + " - Loop " + (currentSlotIndex + 1) + "/" + projectSlots.length;
+          }
+          
           nextTime += stepDur;
         }
         
@@ -2186,7 +2191,7 @@
       
       // Play through all slots with continuous timing
       var currentSlotIndex = 0;
-      var barsPlayed = 0;
+      var barsPlayed = 1;
       var step = 0;
       var nextTime = ctx.currentTime + 0.005;
       var hubTimer = null;
@@ -2210,31 +2215,36 @@
         var nextPattern = null;
         
         while(nextTime < ctx.currentTime + 0.1){
+          // Pass full step (0-63) for bass/lead/piano, drums use step % 16
           playLoopStep(currentPattern, step, nextTime);
           
           step++;
-          if(step >= 16){
-            step = 0;
+          
+          // Track bar progress (every 16 steps = 1 bar)
+          if(step > 0 && step < 64 && step % 16 === 0){
             barsPlayed++;
             statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops + " - Bar " + barsPlayed + "/4";
-            
-            if(barsPlayed >= 4){
-              barsPlayed = 0;
-              currentSlotIndex++;
-              
-              if(currentSlotIndex >= projectSlots.length){
-                switchToNextProject = true;
-                break;
-              }
-              
-              // Switch to next slot seamlessly
-              switchTime = nextTime;
-              nextPattern = projectSlots[currentSlotIndex];
-              currentPattern = nextPattern;
-              loopSlots[0] = currentPattern;
-              statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops;
-            }
           }
+          
+          // After 64 steps (4 bars), move to next slot
+          if(step >= 64){
+            step = 0;
+            barsPlayed = 1;
+            currentSlotIndex++;
+            
+            if(currentSlotIndex >= projectSlots.length){
+              switchToNextProject = true;
+              break;
+            }
+            
+            // Switch to next slot seamlessly
+            switchTime = nextTime;
+            nextPattern = projectSlots[currentSlotIndex];
+            currentPattern = nextPattern;
+            loopSlots[0] = currentPattern;
+            statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops;
+          }
+          
           nextTime += stepDur;
         }
         
