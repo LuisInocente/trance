@@ -727,7 +727,7 @@
       #masterPlay, #masterStop, .muteBtn, .trkVol,
       .loopSlots, .pill, input[type="range"], .faderWrap,
       .samplerBar, .drumToolsCompact, .card-mixer, .mixerGrid,
-      .tb_oct, .tb_stepNum { display: none !important; }
+      .tb_oct, .tb_stepNum, .tb_grid { display: none !important; }
       .wrap { padding: 10pt !important; gap: 12pt !important; display: block !important; }
       .card { background: white !important; border: 1px solid #999 !important; padding: 8pt !important; page-break-inside: avoid; margin-bottom: 12pt !important; box-shadow: none !important; display: block !important; }
       .cardHead { border-bottom: 1px solid #999 !important; padding-bottom: 4pt !important; margin-bottom: 8pt !important; display: block !important; }
@@ -737,40 +737,33 @@
       /* Drum grid */
       .grid { gap: 2pt !important; display: grid !important; }
       .row { gap: 1pt !important; grid-template-columns: 60px repeat(16, 1fr) !important; display: grid !important; }
-      .cell { border: 1px solid #999 !important; background: white !important; min-height: 16px !important; border-radius: 1px !important; display: block !important; }
+      .cell { border: 1px solid #999 !important; background: white !important; min-height: 14px !important; border-radius: 1px !important; display: block !important; }
       .cell.on { background: #888 !important; }
       .cell.beatA, .cell.beatB { background: white !important; border-color: #999 !important; }
       .cell.beatA.on, .cell.beatB.on { background: #888 !important; }
-      .trackCell { font-size: 8pt !important; padding: 1pt 2pt !important; background: white !important; border: none !important; display: flex !important; align-items: center !important; }
-      .trackCell .trkName { font-weight: bold !important; font-size: 7pt !important; }
+      .trackCell { font-size: 7pt !important; padding: 1pt 2pt !important; background: white !important; border: none !important; display: flex !important; align-items: center !important; }
+      .trackCell .trkName { font-weight: bold !important; font-size: 6pt !important; }
       .trackCell .trkFile, .trackCell .trkVol, .trackCell .trkLeft { display: none !important; }
       
-      /* Bass/Lead/Piano grids */
-      .tb_grid { display: flex !important; gap: 1pt !important; flex-wrap: nowrap !important; }
-      .tb_labels { display: flex !important; flex-direction: column !important; gap: 1pt !important; width: 25px !important; }
-      .tb_labels > div { font-size: 6pt !important; height: 12px !important; display: flex !important; align-items: center !important; color: black !important; }
-      .tb_labels .muted { color: black !important; font-weight: bold !important; }
-      .tb_col { display: flex !important; flex-direction: column !important; gap: 1pt !important; flex: 1 !important; }
-      .tb_spacer { display: none !important; }
-      .tb_pad { border: 1px solid #999 !important; background: white !important; min-height: 12px !important; font-size: 6pt !important; border-radius: 1px !important; display: flex !important; align-items: center !important; justify-content: center !important; color: black !important; }
-      .tb_pad.on, .bass .tb_pad.on, .lead .tb_pad.on, .piano .tb_pad.on { background: #888 !important; border-color: #888 !important; color: white !important; }
-      .tb_pad.on-other, .piano .tb_pad.on-other { background: #bbb !important; border-color: #bbb !important; color: black !important; }
-      .tb_col.beatA .tb_pad, .tb_col.beatB .tb_pad { background: white !important; }
-      .tb_col.beatA .tb_pad.on, .tb_col.beatB .tb_pad.on { background: #888 !important; }
-      .tb_col.beatA .tb_pad.on-other, .tb_col.beatB .tb_pad.on-other { background: #bbb !important; }
-      
       /* Print header */
-      #printHeader { display: block !important; text-align: center; margin-bottom: 16pt; border-bottom: 1px solid #999; padding-bottom: 10pt; }
-      #printHeader h1 { font-size: 16pt; margin: 0 0 6pt 0; font-weight: bold; }
-      #printHeader p { font-size: 10pt; margin: 0; }
+      #printHeader { display: block !important; text-align: center; margin-bottom: 12pt; border-bottom: 1px solid #999; padding-bottom: 8pt; }
+      #printHeader h1 { font-size: 14pt; margin: 0 0 4pt 0; font-weight: bold; }
+      #printHeader p { font-size: 9pt; margin: 0; }
       
-      /* Step numbers */
-      .printStepNums { display: flex !important; margin-bottom: 2pt; padding-left: 60px; }
-      .printStepNums span { flex: 1; text-align: center; font-size: 7pt; font-weight: bold; color: #666; }
-      .printStepNumsTB { display: flex !important; margin-bottom: 2pt; padding-left: 25px; }
-      .printStepNumsTB span { flex: 1; text-align: center; font-size: 6pt; font-weight: bold; color: #666; }
-      #printStepNumbers { display: flex !important; }
+      /* Print bar containers for bass/lead/piano */
+      .printBarContainer { display: block !important; }
+      .printBar { margin-bottom: 6pt !important; }
+      .printStepRow { display: grid !important; grid-template-columns: 30px repeat(16, 1fr) !important; gap: 1px !important; margin-bottom: 1px !important; }
+      .printStepRow .printLabel { font-size: 6pt !important; font-weight: bold !important; display: flex !important; align-items: center !important; }
+      .printStepRow .printStepNum { font-size: 5pt !important; text-align: center !important; color: #666 !important; }
+      .printNoteRow { display: grid !important; grid-template-columns: 30px repeat(16, 1fr) !important; gap: 1px !important; }
+      .printNoteRow .printLabel { font-size: 6pt !important; font-weight: bold !important; display: flex !important; align-items: center !important; }
+      .printCell { border: 1px solid #999 !important; background: white !important; min-height: 10px !important; }
+      .printCell.on { background: #888 !important; }
     }
+    
+    /* Hide print containers when not printing */
+    .printBarContainer { display: none; }
     #printHeader { display: none; }
     #printStepNumbers { display: none; }
     .printStepNums { display: none; }
@@ -4398,49 +4391,85 @@
       setStatus("Ready - Click a loop button to arm, then Play to record 4 bars!");
     }
 
-    // Print functionality
+    // Print functionality - generate full 64-step layout
     const printBtn = document.getElementById("printBtn");
     printBtn.addEventListener("click", function(){
-      // Add step numbers for drums before printing
-      let stepNumsEl = document.getElementById("printStepNumbers");
-      if(!stepNumsEl){
-        stepNumsEl = document.createElement("div");
-        stepNumsEl.id = "printStepNumbers";
-        stepNumsEl.className = "printStepNums";
-        for(let i = 1; i <= 16; i++){
-          const span = document.createElement("span");
-          span.textContent = i;
-          stepNumsEl.appendChild(span);
-        }
-        const drumSection = document.getElementById("drumSection");
-        if(drumSection){
-          const grid = drumSection.querySelector(".grid");
-          if(grid) grid.parentNode.insertBefore(stepNumsEl, grid);
-        }
-      }
+      // Remove any existing print containers
+      document.querySelectorAll(".printBarContainer").forEach(el => el.remove());
       
-      // Add step numbers for bass/lead/piano
-      function addStepNumsTB(sectionId, numStepsId){
-        let el = document.getElementById(numStepsId);
-        if(!el){
-          el = document.createElement("div");
-          el.id = numStepsId;
-          el.className = "printStepNumsTB";
+      // Create print layout for bass/lead/piano showing all 4 bars
+      function createPrintGrid(sectionId, state, kind){
+        const section = document.getElementById(sectionId);
+        if(!section) return;
+        
+        // Create container for print bars
+        const printContainer = document.createElement("div");
+        printContainer.className = "printBarContainer";
+        
+        // Generate 4 bars (each 16 steps)
+        for(let bar = 0; bar < 4; bar++){
+          const barDiv = document.createElement("div");
+          barDiv.className = "printBar";
+          
+          // Step numbers row
+          const stepNums = document.createElement("div");
+          stepNums.className = "printStepRow";
+          const labelSpacer = document.createElement("span");
+          labelSpacer.className = "printLabel";
+          labelSpacer.textContent = "Bar " + (bar + 1);
+          stepNums.appendChild(labelSpacer);
           for(let i = 1; i <= 16; i++){
             const span = document.createElement("span");
+            span.className = "printStepNum";
             span.textContent = i;
-            el.appendChild(span);
+            stepNums.appendChild(span);
           }
-          const section = document.getElementById(sectionId);
-          if(section){
-            const grid = section.querySelector(".tb_grid");
-            if(grid) grid.parentNode.insertBefore(el, grid);
+          barDiv.appendChild(stepNums);
+          
+          // Note rows
+          for(const noteName of NOTE_NAMES){
+            const row = document.createElement("div");
+            row.className = "printNoteRow";
+            
+            const label = document.createElement("span");
+            label.className = "printLabel";
+            label.textContent = noteName;
+            row.appendChild(label);
+            
+            for(let step = 0; step < 16; step++){
+              const stepIdx = bar * 16 + step;
+              const cell = document.createElement("span");
+              cell.className = "printCell";
+              
+              if(kind === "piano"){
+                // Piano has array of notes per step
+                const stepNotes = state.steps[stepIdx] || [];
+                const hasNote = stepNotes.some(n => n.note === noteName);
+                if(hasNote) cell.classList.add("on");
+              } else {
+                // Bass/Lead have single note per step
+                const stepData = state.steps[stepIdx];
+                if(stepData && stepData.note === noteName){
+                  cell.classList.add("on");
+                }
+              }
+              
+              row.appendChild(cell);
+            }
+            barDiv.appendChild(row);
           }
+          
+          printContainer.appendChild(barDiv);
         }
+        
+        // Insert after the normal grid
+        const body = section.querySelector(".body");
+        if(body) body.appendChild(printContainer);
       }
-      addStepNumsTB("bassSection", "printStepNumsBass");
-      addStepNumsTB("leadSection", "printStepNumsLead");
-      addStepNumsTB("pianoSection", "printStepNumsPiano");
+      
+      createPrintGrid("bassSection", bassState, "bass");
+      createPrintGrid("leadSection", leadState, "lead");
+      createPrintGrid("pianoSection", pianoState, "piano");
       
       window.print();
     });
