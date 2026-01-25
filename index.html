@@ -585,18 +585,30 @@
 
     /* Piano octave selector buttons */
     .octSelBtn{
-      padding:2px 6px;
-      font-size:11px;
+      padding:4px 10px;
+      font-size:12px;
+      font-weight:bold;
       border:1px solid var(--border);
       background:var(--card);
       color:var(--text);
       border-radius:4px;
       cursor:pointer;
+      pointer-events:auto;
+      position:relative;
+      z-index:1;
+      min-width:28px;
+      text-align:center;
     }
     .octSelBtn.active{
       background:var(--pianoOn);
       border-color:var(--pianoOn);
       color:#fff;
+    }
+    .octSelBtn:hover{
+      background:#444;
+    }
+    .octSelBtn.active:hover{
+      background:#047aa3;
     }
 
     /* Beat shading - alternating every 4 steps */
@@ -908,11 +920,11 @@
       <div class="body piano">
         <div class="seqControls">
           <button id="pianoReset" class="smallBtn">Reset</button>
-          <div class="pill" style="gap:2px;">
+          <div class="pill" style="gap:4px;">
             <span>Oct</span>
-            <button id="pianoOctHi" class="octSelBtn">+1</button>
-            <button id="pianoOctMid" class="octSelBtn active">0</button>
-            <button id="pianoOctLo" class="octSelBtn">-1</button>
+            <button type="button" id="pianoOctHi" class="octSelBtn">+1</button>
+            <button type="button" id="pianoOctMid" class="octSelBtn active">0</button>
+            <button type="button" id="pianoOctLo" class="octSelBtn">-1</button>
           </div>
           <div class="pill"><span>Vol</span><input id="pianoVol" type="range" min="0" max="1" step="0.01" value="0.7"></div>
           <div class="pill"><span>Reverb</span><input id="pianoReverb" type="range" min="0" max="1" step="0.01" value="0.15"></div>
@@ -3565,22 +3577,28 @@
     const pianoOctLo = document.getElementById("pianoOctLo");
 
     function updatePianoOctButtons(){
-      pianoOctHi.classList.toggle("active", pianoCurrentOct === 1);
-      pianoOctMid.classList.toggle("active", pianoCurrentOct === 0);
-      pianoOctLo.classList.toggle("active", pianoCurrentOct === -1);
+      if(pianoOctHi) pianoOctHi.classList.toggle("active", pianoCurrentOct === 1);
+      if(pianoOctMid) pianoOctMid.classList.toggle("active", pianoCurrentOct === 0);
+      if(pianoOctLo) pianoOctLo.classList.toggle("active", pianoCurrentOct === -1);
     }
 
-    pianoOctHi.addEventListener("click", () => {
+    if(pianoOctHi) pianoOctHi.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       pianoCurrentOct = 1;
       updatePianoOctButtons();
       renderPianoGrid(pianoGridEl, pianoViewOffset);
     });
-    pianoOctMid.addEventListener("click", () => {
+    if(pianoOctMid) pianoOctMid.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       pianoCurrentOct = 0;
       updatePianoOctButtons();
       renderPianoGrid(pianoGridEl, pianoViewOffset);
     });
-    pianoOctLo.addEventListener("click", () => {
+    if(pianoOctLo) pianoOctLo.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       pianoCurrentOct = -1;
       updatePianoOctButtons();
       renderPianoGrid(pianoGridEl, pianoViewOffset);
