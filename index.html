@@ -568,6 +568,7 @@
     .lead .tb_octBtn.on.oct-mid{ background:var(--leadOn)!important; border-color:var(--leadOn)!important; color:#fff; }
     .lead .tb_octBtn.on.oct-down{ background:#4c1d95!important; border-color:#3b1578!important; color:#fff; }
     .piano .tb_pad.on{ background:var(--pianoOn)!important; border-color:var(--pianoOn)!important; }
+    .piano .tb_pad.on-other{ background:#064e6e!important; border-color:#053e58!important; opacity:0.6; }
     .piano .tb_octBtn.on.oct-up{ background:#0ea5e9!important; border-color:#0284c7!important; color:#fff; }
     .piano .tb_octBtn.on.oct-mid{ background:var(--pianoOn)!important; border-color:var(--pianoOn)!important; color:#fff; }
     .piano .tb_octBtn.on.oct-down{ background:#075985!important; border-color:#0c4a6e!important; color:#fff; }
@@ -1156,7 +1157,10 @@
           steps: leadState.steps.map(function(s){ return { note: s.note, oct: s.oct }; })
         },
         piano: {
-          steps: pianoState.steps.map(function(s){ return { note: s.note, oct: s.oct }; })
+          steps: pianoState.steps.map(function(step){ 
+            // step is an array of {note, oct}
+            return step.map(function(n){ return { note: n.note, oct: n.oct }; });
+          })
         },
         params: {
           bass: {
@@ -1412,19 +1416,28 @@
         }
       }
       
-      // Play piano - add +1 octave
+      // Play piano - supports chords (each step is array of {note, oct})
       var pp = (pattern.params && pattern.params.piano) || {};
       if(pattern.piano && pattern.piano.steps && pattern.piano.steps[stepIndex]){
-        var pianoData = pattern.piano.steps[stepIndex];
-        if(pianoData.note){
-          var pianoFreq = hzForNote(pianoData.note, safeNum(pianoData.oct, 0) + 1);
-          if(isFinite(pianoFreq) && pianoFreq > 0){
-            pianoSynth.trigger({
-              freq: pianoFreq,
-              time: time,
-              vel: safeNum(pp.vol, 0.7)
-            });
-            pianoSynth.setReverb(safeNum(pp.reverb, 0.3));
+        var pianoStep = pattern.piano.steps[stepIndex];
+        // Handle both formats: direct array or object with notes
+        var pianoNotes = Array.isArray(pianoStep) ? pianoStep : (pianoStep.notes || []);
+        // Handle old single-note format
+        if(pianoNotes.length === 0 && pianoStep.note){
+          pianoNotes = [{ note: pianoStep.note, oct: pianoStep.oct || 0 }];
+        }
+        if(pianoNotes.length > 0){
+          pianoSynth.setReverb(safeNum(pp.reverb, 0.3));
+          for(var pn = 0; pn < pianoNotes.length; pn++){
+            var pNote = pianoNotes[pn];
+            var pianoFreq = hzForNote(pNote.note, safeNum(pNote.oct, 0) + 1);
+            if(isFinite(pianoFreq) && pianoFreq > 0){
+              pianoSynth.trigger({
+                freq: pianoFreq,
+                time: time,
+                vel: safeNum(pp.vol, 0.7)
+              });
+            }
           }
         }
       }
@@ -1606,9 +1619,43 @@
         return steps;
       }
       
+      // Parse piano chord steps (array format)
+      function parsePianoSteps(data, len){
+        const steps = [];
+        for(let i = 0; i < len; i++){
+          if(Array.isArray(data) && data[i]){
+            // New format: array of note strings like ["A1", "C1"]
+            if(Array.isArray(data[i])){
+              steps.push(data[i].map(function(ns){
+                return { note: ns[0], oct: decOct(ns[1]) };
+              }));
+            } else {
+              steps.push([]);
+            }
+          } else if(typeof data === 'string' && data.length > 0){
+            // Old format: string like "A1--C1--"
+            const idx = i * 2;
+            if(idx < data.length){
+              const ch = data[idx];
+              const oct = data[idx + 1];
+              if(ch !== '-'){
+                steps.push([{ note: ch, oct: decOct(oct) }]);
+              } else {
+                steps.push([]);
+              }
+            } else {
+              steps.push([]);
+            }
+          } else {
+            steps.push([]);
+          }
+        }
+        return steps;
+      }
+      
       const bassSteps = parseSteps(d.ba, 64);
       const leadSteps = parseSteps(d.le, 64);
-      const pianoSteps = parseSteps(d.pi, 64);
+      const pianoSteps = parsePianoSteps(d.pi, 64);
       
       const p = d.p || [0,0,0,0.28,0,0,0,0.55,0.7,0.3];
       const m = d.m || [0.8,0.75,0.7,0.7,1,1,1,1];
@@ -1667,6 +1714,18 @@
         if(!slot) return null;
         // Encode octave: original is -1 to 2, store as 0-3
         function encOct(o){ return (parseInt(o) || 0) + 1; }
+        
+        // Encode piano chords - each step is array of notes
+        function encPianoSteps(steps){
+          if(!steps) return [];
+          return steps.map(function(step){
+            // step is array of {note, oct}
+            var arr = Array.isArray(step) ? step : (step.notes || []);
+            if(arr.length === 0) return null;
+            return arr.map(function(n){ return n.note + encOct(n.oct); });
+          });
+        }
+        
         return {
           t: slot.tempo || tempo(),
           dr: slot.drums ? slot.drums.map(function(tr){
@@ -1677,7 +1736,7 @@
           dv: slot.drums ? slot.drums.map(function(tr){ return Math.round((tr.vol || 0.8) * 100) / 100; }) : [],
           ba: slot.bass && slot.bass.steps ? slot.bass.steps.map(function(s){ return s.note ? s.note[0] + encOct(s.oct) : '--'; }).join('') : '',
           le: slot.lead && slot.lead.steps ? slot.lead.steps.map(function(s){ return s.note ? s.note[0] + encOct(s.oct) : '--'; }).join('') : '',
-          pi: slot.piano && slot.piano.steps ? slot.piano.steps.map(function(s){ return s.note ? s.note[0] + encOct(s.oct) : '--'; }).join('') : '',
+          pi: slot.piano && slot.piano.steps ? encPianoSteps(slot.piano.steps) : [],
           p: slot.params ? [
             (slot.params.bass && isFinite(slot.params.bass.cut)) ? slot.params.bass.cut : 0,
             (slot.params.bass && isFinite(slot.params.bass.res)) ? slot.params.bass.res : 0,
@@ -2985,14 +3044,19 @@
 
     // 64 steps = 4 bars for bass/lead/piano
     function makeSeqState(steps = 64){ return { steps: Array.from({length:steps}, () => ({ note:null, oct:0 })) }; }
+    // Piano supports chords - each step is an array of {note, oct} objects
+    function makePianoState(steps = 64){ return { steps: Array.from({length:steps}, () => []) }; }
     let bassState = makeSeqState(64);
     let leadState = makeSeqState(64);
-    let pianoState = makeSeqState(64);
+    let pianoState = makePianoState(64);
     
     // View offset for 64-step sequencers (0 = bars 1-2, 32 = bars 3-4)
     let bassViewOffset = 0;
     let leadViewOffset = 0;
     let pianoViewOffset = 0;
+    
+    // Current octave for piano (shared across all steps when adding notes)
+    let pianoCurrentOct = 0;
 
     function renderSeqGrid(rootEl, state, kind, offset = 0){
       rootEl.innerHTML = "";
@@ -3093,6 +3157,142 @@
       rootEl.classList.toggle("bass", kind==="bass");
       rootEl.classList.toggle("lead", kind==="lead");
       rootEl.classList.toggle("piano", kind==="piano");
+    }
+
+    // Render piano grid with chord support (multiple notes per step)
+    function renderPianoGrid(rootEl, offset = 0){
+      rootEl.innerHTML = "";
+
+      const labels = document.createElement("div");
+      labels.className = "tb_labels";
+
+      const l0 = document.createElement("div");
+      l0.className = "muted";
+      l0.textContent = "";
+      labels.appendChild(l0);
+
+      // Octave selector label
+      const l1 = document.createElement("div");
+      l1.className = "muted";
+      l1.textContent = "Oct";
+      labels.appendChild(l1);
+
+      const l2 = document.createElement("div");
+      l2.className = "tb_spacer";
+      labels.appendChild(l2);
+
+      for(const n of NOTE_NAMES){
+        const ln = document.createElement("div");
+        ln.className = "muted";
+        ln.style.display="flex";
+        ln.style.alignItems="center";
+        ln.style.justifyContent="flex-start";
+        ln.textContent = n;
+        labels.appendChild(ln);
+      }
+
+      rootEl.appendChild(labels);
+
+      // Show 32 steps (2 bars) at the given offset
+      for(let i = 0; i < 32; i++){
+        const s = offset + i;
+        const col = document.createElement("div");
+        const beatClass = (Math.floor(s / 4) % 2 === 0) ? "beatA" : "beatB";
+        col.className = "tb_col " + beatClass;
+        if(i === 16) col.style.borderLeft = "2px solid var(--accent)";
+
+        const stepNum = document.createElement("div");
+        stepNum.className = "tb_stepNum";
+        stepNum.textContent = String(s + 1);
+        col.appendChild(stepNum);
+
+        // Octave buttons - these set the octave for THIS step's notes
+        const octWrap = document.createElement("div");
+        octWrap.className = "tb_oct";
+
+        // Get notes for this step (array of {note, oct})
+        const stepNotes = pianoState.steps[s] || [];
+        const hasHighOct = stepNotes.some(n => n.oct === 1);
+        const hasMidOct = stepNotes.some(n => n.oct === 0);
+        const hasLowOct = stepNotes.some(n => n.oct === -1);
+
+        const btnTop = document.createElement("button");
+        btnTop.className = "tb_octBtn oct-up";
+        btnTop.textContent = "";
+        btnTop.classList.toggle("on", hasHighOct);
+        btnTop.addEventListener("click", () => { 
+          pianoCurrentOct = 1; 
+          // Update all octave buttons visually
+          renderPianoGrid(rootEl, offset);
+        });
+
+        const btnMid = document.createElement("button");
+        btnMid.className = "tb_octBtn oct-mid";
+        btnMid.textContent = "";
+        btnMid.classList.toggle("on", hasMidOct);
+        btnMid.addEventListener("click", () => { 
+          pianoCurrentOct = 0; 
+          renderPianoGrid(rootEl, offset);
+        });
+
+        const btnBot = document.createElement("button");
+        btnBot.className = "tb_octBtn oct-down";
+        btnBot.textContent = "";
+        btnBot.classList.toggle("on", hasLowOct);
+        btnBot.addEventListener("click", () => { 
+          pianoCurrentOct = -1; 
+          renderPianoGrid(rootEl, offset);
+        });
+
+        octWrap.appendChild(btnTop);
+        octWrap.appendChild(btnMid);
+        octWrap.appendChild(btnBot);
+        col.appendChild(octWrap);
+
+        const spacer = document.createElement("div");
+        spacer.className = "tb_spacer";
+        col.appendChild(spacer);
+
+        for(const n of NOTE_NAMES){
+          const pad = document.createElement("button");
+          pad.className = "tb_pad nat";
+          
+          // Check if this note is active at any octave
+          const noteAtCurrentOct = stepNotes.find(sn => sn.note === n && sn.oct === pianoCurrentOct);
+          const noteAtAnyOct = stepNotes.find(sn => sn.note === n);
+          
+          if(noteAtCurrentOct){
+            pad.classList.add("on");
+          } else if(noteAtAnyOct){
+            // Note exists at different octave - show dimmed
+            pad.classList.add("on-other");
+          }
+
+          pad.addEventListener("click", async () => {
+            await resumeAudio();
+            
+            const notes = pianoState.steps[s];
+            const existingIdx = notes.findIndex(sn => sn.note === n && sn.oct === pianoCurrentOct);
+            
+            if(existingIdx >= 0){
+              // Remove note
+              notes.splice(existingIdx, 1);
+            } else {
+              // Add note at current octave
+              notes.push({ note: n, oct: pianoCurrentOct });
+            }
+            
+            renderPianoGrid(rootEl, offset);
+            scheduleSave();
+          });
+
+          col.appendChild(pad);
+        }
+
+        rootEl.appendChild(col);
+      }
+
+      rootEl.classList.add("piano");
     }
 
     // ---------- synths ----------
@@ -3347,8 +3547,8 @@
       scheduleSave();
     });
     pianoResetBtn.addEventListener("click", () => {
-      pianoState = makeSeqState(64);
-      renderSeqGrid(pianoGridEl, pianoState, "piano", pianoViewOffset);
+      pianoState = makePianoState(64);
+      renderPianoGrid(pianoGridEl, pianoViewOffset);
       scheduleSave();
     });
 
@@ -3388,13 +3588,13 @@
       pianoViewOffset = 0;
       pianoBar12.classList.add("active");
       pianoBar34.classList.remove("active");
-      renderSeqGrid(pianoGridEl, pianoState, "piano", 0);
+      renderPianoGrid(pianoGridEl, 0);
     });
     pianoBar34.addEventListener("click", () => {
       pianoViewOffset = 32;
       pianoBar34.classList.add("active");
       pianoBar12.classList.remove("active");
-      renderSeqGrid(pianoGridEl, pianoState, "piano", 32);
+      renderPianoGrid(pianoGridEl, 32);
     });
 
     // ---------- transport / scheduler ----------
@@ -3453,16 +3653,20 @@
       applyLeadParams(false);
     }
 
-    // PIANO plays every 16th note step (64 steps = 4 bars)
+    // PIANO plays every 16th note step (64 steps = 4 bars) - supports chords
     function schedulePiano(step16, t){
       ensureSynths();
 
-      const p = pianoState.steps[pianoStep];
-      if(p.note){
-        const freq = hzForNote(p.note, p.oct + 1);
+      const notes = pianoState.steps[pianoStep] || [];
+      if(notes.length > 0){
         const vol = clamp(+pianoVolEl.value || 0.7, 0, 1);
-        pianoSynth.trigger({ freq, time:t, vel: vol });
         pianoSynth.setReverb(clamp(+pianoReverbEl.value || 0.3, 0, 1));
+        for(const n of notes){
+          const freq = hzForNote(n.note, n.oct + 1);
+          if(isFinite(freq) && freq > 0){
+            pianoSynth.trigger({ freq, time:t, vel: vol });
+          }
+        }
       }
       pianoStep = (pianoStep + 1) % 64;
     }
@@ -3651,7 +3855,7 @@
     const loadFileBtn = document.getElementById("loadFileBtn");
     const loadFileInput = document.getElementById("loadFileInput");
 
-    const STORE_KEY = "mm_drum_bass_lead_piano_mixer_Anatural_v4_64step";
+    const STORE_KEY = "mm_drum_bass_lead_piano_mixer_Anatural_v5_chords";
 
     let saveTimer=null;
     let dirty=false;
@@ -3739,7 +3943,21 @@
       if(st.pianoState){
         pianoState = st.pianoState;
         // Ensure 64 steps
-        while(pianoState.steps.length < 64) pianoState.steps.push({ note:null, oct:0 });
+        while(pianoState.steps.length < 64) pianoState.steps.push([]);
+        // Convert old formats to new array format
+        for(let i = 0; i < pianoState.steps.length; i++){
+          const step = pianoState.steps[i];
+          if(!Array.isArray(step)){
+            // Old format: { note, oct } or { notes: [] }
+            if(step.notes && Array.isArray(step.notes)){
+              pianoState.steps[i] = step.notes;
+            } else if(step.note){
+              pianoState.steps[i] = [{ note: step.note, oct: step.oct || 0 }];
+            } else {
+              pianoState.steps[i] = [];
+            }
+          }
+        }
       }
 
       if(st.params?.bass){
@@ -3803,7 +4021,7 @@
 
       renderSeqGrid(tbGridEl, bassState, "bass", bassViewOffset);
       renderSeqGrid(leadGridEl, leadState, "lead", leadViewOffset);
-      renderSeqGrid(pianoGridEl, pianoState, "piano", pianoViewOffset);
+      renderPianoGrid(pianoGridEl, pianoViewOffset);
       updateTrackLabels();
 
       if(ctx){
@@ -3851,7 +4069,7 @@
     buildGridOnce();
     renderSeqGrid(tbGridEl, bassState, "bass", bassViewOffset);
     renderSeqGrid(leadGridEl, leadState, "lead", leadViewOffset);
-    renderSeqGrid(pianoGridEl, pianoState, "piano", pianoViewOffset);
+    renderPianoGrid(pianoGridEl, pianoViewOffset);
     updateLoopUI();
 
     loadAllSounds();
