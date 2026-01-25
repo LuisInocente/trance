@@ -1317,14 +1317,14 @@
       }
       
       loopStep = 0;
-      // Start with minimal delay to ensure first note isn't in the past
-      loopNextTime = ctx.currentTime + 0.005;
+      // Tight start - minimal delay
+      loopNextTime = ctx.currentTime + 0.002;
       
       function scheduleLoopStep(){
         if(playingSlot < 0) return;
         
         var stepDur = sixteenthSec();
-        var lookAhead = 0.1;
+        var lookAhead = 0.05;
         var needsUIUpdate = false;
         var newStatusMsg = null;
         var switchTime = null;
@@ -1378,7 +1378,7 @@
           });
         }
         
-        loopScheduler = setTimeout(scheduleLoopStep, 20);
+        loopScheduler = setTimeout(scheduleLoopStep, 10);
       }
       
       scheduleLoopStep();
@@ -1959,7 +1959,7 @@
       var currentSlotIndex = 0;
       var barsPlayed = 1;
       var step = 0;
-      var nextTime = ctx.currentTime + 0.005;
+      var nextTime = ctx.currentTime + 0.002;
       var hubTimer = null;
       var currentPattern = projectSlots[0];
       
@@ -1980,7 +1980,7 @@
         var switchTime = null;
         var nextPattern = null;
         
-        while(nextTime < ctx.currentTime + 0.1){
+        while(nextTime < ctx.currentTime + 0.05){
           // Pass full step (0-63) for bass/lead/piano, drums use step % 16
           playLoopStep(currentPattern, step, nextTime);
           
@@ -2023,7 +2023,7 @@
           requestAnimationFrame(function(){ setStatus(statusMsg); });
         }
         
-        hubTimer = setTimeout(scheduleSlotStep, 20);
+        hubTimer = setTimeout(scheduleSlotStep, 10);
       }
       
       scheduleSlotStep();
@@ -2193,7 +2193,7 @@
       var currentSlotIndex = 0;
       var barsPlayed = 1;
       var step = 0;
-      var nextTime = ctx.currentTime + 0.005;
+      var nextTime = ctx.currentTime + 0.002;
       var hubTimer = null;
       var totalLoops = projectSlots.length;
       var currentPattern = projectSlots[0];
@@ -2214,7 +2214,7 @@
         var switchTime = null;
         var nextPattern = null;
         
-        while(nextTime < ctx.currentTime + 0.1){
+        while(nextTime < ctx.currentTime + 0.05){
           // Pass full step (0-63) for bass/lead/piano, drums use step % 16
           playLoopStep(currentPattern, step, nextTime);
           
@@ -2262,22 +2262,19 @@
           if(hubTimer) clearTimeout(hubTimer);
           // Continue immediately with preserved timing
           var savedNextTime = nextTime;
-          setTimeout(function(){
-            // Pass the preserved nextTime to maintain tight timing
-            playNextHubProjectSeamless(savedNextTime);
-          }, 0);
+          playNextHubProjectSeamless(savedNextTime);
           return;
         }
         
-        hubTimer = setTimeout(scheduleAllSlots, 20);
+        hubTimer = setTimeout(scheduleAllSlots, 10);
       }
       
       setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop 1/" + totalLoops);
       scheduleAllSlots();
     }
     
-    // Seamless version that preserves timing
-    async function playNextHubProjectSeamless(preservedNextTime){
+    // Seamless version that preserves timing - no async to avoid delays
+    function playNextHubProjectSeamless(preservedNextTime){
       if(!hubPlaying){
         hideStudentName();
         setStatus("Stopped");
@@ -2291,7 +2288,7 @@
       
       const project = hubProjects[hubPlayIndex];
       
-      await resumeAudio();
+      // Audio is already running, no need to await
       ensureSynths();
       
       // Parse slots
@@ -2339,7 +2336,7 @@
         var switchTime = null;
         var nextPattern = null;
         
-        while(nextTime < ctx.currentTime + 0.1){
+        while(nextTime < ctx.currentTime + 0.05){
           playLoopStep(currentPattern, step, nextTime);
           
           step++;
@@ -2380,13 +2377,11 @@
           hubPlayIndex++;
           if(hubTimer) clearTimeout(hubTimer);
           var savedNextTime = nextTime;
-          setTimeout(function(){
-            playNextHubProjectSeamless(savedNextTime);
-          }, 0);
+          playNextHubProjectSeamless(savedNextTime);
           return;
         }
         
-        hubTimer = setTimeout(scheduleAllSlots, 20);
+        hubTimer = setTimeout(scheduleAllSlots, 10);
       }
       
       setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop 1/" + totalLoops);
@@ -3818,8 +3813,8 @@
     let rafId = null;
     let startTime = 0;
 
-    const AHEAD_SEC = 0.04;
-    const LOOKAHEAD_MS = 15;
+    const AHEAD_SEC = 0.03;
+    const LOOKAHEAD_MS = 10;
 
     function hzForNote(noteName, oct){
       const baseMidi = 45; // A2
