@@ -915,7 +915,7 @@
             <button id="pianoOctLo" class="octSelBtn">-1</button>
           </div>
           <div class="pill"><span>Vol</span><input id="pianoVol" type="range" min="0" max="1" step="0.01" value="0.7"></div>
-          <div class="pill"><span>Reverb</span><input id="pianoReverb" type="range" min="0" max="1" step="0.01" value="0.3"></div>
+          <div class="pill"><span>Reverb</span><input id="pianoReverb" type="range" min="0" max="1" step="0.01" value="0.15"></div>
         </div>
 
         <div id="piano_grid" class="tb_grid"></div>
@@ -3305,13 +3305,13 @@
       const out = ctx.createGain();
       out.gain.value = 1.0;
       
-      // Reverb (simple delay-based)
+      // Short reverb for house piano
       const reverbDelay = ctx.createDelay(0.1);
-      reverbDelay.delayTime.value = 0.03;
+      reverbDelay.delayTime.value = 0.025;
       const reverbGain = ctx.createGain();
-      reverbGain.gain.value = 0.3;
+      reverbGain.gain.value = 0.15;
       const reverbFb = ctx.createGain();
-      reverbFb.gain.value = 0.4;
+      reverbFb.gain.value = 0.25;
       
       reverbDelay.connect(reverbGain);
       reverbGain.connect(out);
@@ -3319,7 +3319,7 @@
       reverbFb.connect(reverbDelay);
       
       function setReverb(amt){
-        reverbGain.gain.value = clamp(amt, 0, 1) * 0.5;
+        reverbGain.gain.value = clamp(amt, 0, 1) * 0.3;
       }
       
       function trigger({ freq, time, vel = 0.7 }){
@@ -3327,50 +3327,80 @@
         freq = Math.max(20, Math.min(freq, 8000));
         vel = isFinite(vel) ? vel : 0.7;
         
-        // Main tone (sine with harmonics)
+        // M1-style house piano: bright, staccato, slightly detuned
         const fundamental = ctx.createOscillator();
-        fundamental.type = "sine";
+        fundamental.type = "triangle";
         fundamental.frequency.setValueAtTime(freq, time);
         
+        // Slight detune for thickness (M1 characteristic)
+        const detune1 = ctx.createOscillator();
+        detune1.type = "triangle";
+        detune1.frequency.setValueAtTime(freq * 1.003, time);
+        
+        const detune2 = ctx.createOscillator();
+        detune2.type = "triangle";
+        detune2.frequency.setValueAtTime(freq * 0.997, time);
+        
+        // Bright harmonic for attack
         const harm2 = ctx.createOscillator();
         harm2.type = "sine";
         harm2.frequency.setValueAtTime(freq * 2, time);
         
-        const harm3 = ctx.createOscillator();
-        harm3.type = "sine";
-        harm3.frequency.setValueAtTime(freq * 3, time);
+        // High harmonic click
+        const harm4 = ctx.createOscillator();
+        harm4.type = "sine";
+        harm4.frequency.setValueAtTime(freq * 4, time);
         
-        // VCA with piano-like envelope
+        // VCAs with short staccato envelope
         const vca = ctx.createGain();
+        const detune1Gain = ctx.createGain();
+        const detune2Gain = ctx.createGain();
         const harm2Gain = ctx.createGain();
-        const harm3Gain = ctx.createGain();
+        const harm4Gain = ctx.createGain();
         
+        // Main envelope - punchy attack, fast decay, short sustain
         vca.gain.setValueAtTime(0.0001, time);
-        vca.gain.linearRampToValueAtTime(vel * 0.8, time + 0.003);
-        vca.gain.setTargetAtTime(vel * 0.3, time + 0.003, 0.15);
-        vca.gain.setTargetAtTime(0.0001, time + 0.5, 0.4);
+        vca.gain.linearRampToValueAtTime(vel * 0.7, time + 0.002);  // Fast attack
+        vca.gain.setTargetAtTime(vel * 0.15, time + 0.002, 0.04);   // Quick decay
+        vca.gain.setTargetAtTime(0.0001, time + 0.12, 0.05);        // Short release
         
-        harm2Gain.gain.setValueAtTime(vel * 0.25, time);
-        harm2Gain.gain.setTargetAtTime(0.0001, time + 0.3, 0.2);
+        // Detuned layers
+        detune1Gain.gain.setValueAtTime(0.0001, time);
+        detune1Gain.gain.linearRampToValueAtTime(vel * 0.25, time + 0.002);
+        detune1Gain.gain.setTargetAtTime(0.0001, time + 0.08, 0.03);
         
-        harm3Gain.gain.setValueAtTime(vel * 0.1, time);
-        harm3Gain.gain.setTargetAtTime(0.0001, time + 0.2, 0.1);
+        detune2Gain.gain.setValueAtTime(0.0001, time);
+        detune2Gain.gain.linearRampToValueAtTime(vel * 0.25, time + 0.002);
+        detune2Gain.gain.setTargetAtTime(0.0001, time + 0.08, 0.03);
+        
+        // Harmonics - bright click on attack
+        harm2Gain.gain.setValueAtTime(vel * 0.3, time);
+        harm2Gain.gain.setTargetAtTime(0.0001, time + 0.01, 0.02);  // Very fast decay
+        
+        harm4Gain.gain.setValueAtTime(vel * 0.15, time);
+        harm4Gain.gain.setTargetAtTime(0.0001, time + 0.005, 0.01); // Click only
         
         fundamental.connect(vca);
+        detune1.connect(detune1Gain);
+        detune2.connect(detune2Gain);
         harm2.connect(harm2Gain);
-        harm3.connect(harm3Gain);
+        harm4.connect(harm4Gain);
         
         vca.connect(out);
+        detune1Gain.connect(out);
+        detune2Gain.connect(out);
         harm2Gain.connect(out);
-        harm3Gain.connect(out);
+        harm4Gain.connect(out);
         
-        // Also send to reverb
+        // Send to reverb (less than before)
         vca.connect(reverbDelay);
         
-        const stopT = time + 2.0;
+        const stopT = time + 0.5;  // Shorter lifetime
         try{ fundamental.start(time); fundamental.stop(stopT); }catch(_){}
+        try{ detune1.start(time); detune1.stop(stopT); }catch(_){}
+        try{ detune2.start(time); detune2.stop(stopT); }catch(_){}
         try{ harm2.start(time); harm2.stop(stopT); }catch(_){}
-        try{ harm3.start(time); harm3.stop(stopT); }catch(_){}
+        try{ harm4.start(time); harm4.stop(stopT); }catch(_){}
       }
       
       return { out, trigger, setReverb };
