@@ -1318,31 +1318,39 @@
       
       loopStep = 0;
       // Tight start - minimal delay
-      loopNextTime = ctx.currentTime + 0.002;
+      loopNextTime = ctx.currentTime + 0.001;
+      
+      // Cache the step duration to avoid recalculation
+      var cachedStepDur = sixteenthSec();
+      var lastTempo = tempo();
       
       function scheduleLoopStep(){
         if(playingSlot < 0) return;
         
-        var stepDur = sixteenthSec();
-        var lookAhead = 0.05;
+        // Update step duration only if tempo changed
+        var currentTempo = tempo();
+        if(currentTempo !== lastTempo){
+          cachedStepDur = sixteenthSec();
+          lastTempo = currentTempo;
+        }
+        
+        var lookAhead = 0.04;
         var needsUIUpdate = false;
         var newStatusMsg = null;
         var switchTime = null;
         var newPattern = null;
+        var currentPattern = loopSlots[playingSlot];
         
         while(loopNextTime < ctx.currentTime + lookAhead){
-          // Get current pattern each iteration (in case of switch)
-          var currentPattern = loopSlots[playingSlot];
           if(!currentPattern) return;
           
           // Pass full step (0-63) for bass/lead/piano, drums use step % 16
           playLoopStep(currentPattern, loopStep, loopNextTime);
           
           loopStep++;
-          loopNextTime += stepDur;
+          loopNextTime += cachedStepDur;
           
           // Track bar progress (every 16 steps = 1 bar)
-          // Increment after completing step 15, 31, 47
           if(loopStep > 0 && loopStep < 64 && loopStep % 16 === 0){
             loopBarsPlayed++;
             needsUIUpdate = true;
@@ -1359,7 +1367,8 @@
               switchTime = loopNextTime;
               playingSlot = pendingPlaySlot;
               pendingPlaySlot = -1;
-              newPattern = loopSlots[playingSlot];
+              currentPattern = loopSlots[playingSlot];
+              newPattern = currentPattern;
               newStatusMsg = "Playing Loop " + (playingSlot + 1);
             }
           }
@@ -1378,7 +1387,7 @@
           });
         }
         
-        loopScheduler = setTimeout(scheduleLoopStep, 10);
+        loopScheduler = setTimeout(scheduleLoopStep, 8);
       }
       
       scheduleLoopStep();
@@ -1959,7 +1968,7 @@
       var currentSlotIndex = 0;
       var barsPlayed = 1;
       var step = 0;
-      var nextTime = ctx.currentTime + 0.002;
+      var nextTime = ctx.currentTime + 0.001;
       var hubTimer = null;
       var currentPattern = projectSlots[0];
       
@@ -1976,54 +1985,46 @@
         
         var stepDur = sixteenthSec();
         var statusMsg = null;
-        var finished = false;
         var switchTime = null;
         var nextPattern = null;
         
-        while(nextTime < ctx.currentTime + 0.05){
-          // Pass full step (0-63) for bass/lead/piano, drums use step % 16
+        while(nextTime < ctx.currentTime + 0.04){
           playLoopStep(currentPattern, step, nextTime);
           
           step++;
           nextTime += stepDur;
           
-          // Track bar progress (every 16 steps = 1 bar)
           if(step > 0 && step < 64 && step % 16 === 0){
             barsPlayed++;
             statusMsg = project.name + " - Loop " + (currentSlotIndex + 1) + "/" + projectSlots.length + " - Bar " + barsPlayed + "/4";
           }
           
-          // After 64 steps (4 bars), move to next slot
           if(step >= 64){
             step = 0;
             barsPlayed = 1;
             currentSlotIndex++;
             
-            // Loop back to first slot when all slots played
             if(currentSlotIndex >= projectSlots.length){
               currentSlotIndex = 0;
             }
             
-            // Switch to next slot without resetting timing
             switchTime = nextTime;
-            nextPattern = projectSlots[currentSlotIndex];
-            currentPattern = nextPattern;
+            currentPattern = projectSlots[currentSlotIndex];
+            nextPattern = currentPattern;
             loopSlots[0] = currentPattern;
             statusMsg = project.name + " - Loop " + (currentSlotIndex + 1) + "/" + projectSlots.length;
           }
         }
         
-        // Apply mixer at exact switch time
         if(nextPattern && switchTime){
           applyProjectMixer(nextPattern, switchTime);
         }
         
-        // Defer UI update
         if(statusMsg){
           requestAnimationFrame(function(){ setStatus(statusMsg); });
         }
         
-        hubTimer = setTimeout(scheduleSlotStep, 10);
+        hubTimer = setTimeout(scheduleSlotStep, 8);
       }
       
       scheduleSlotStep();
@@ -2193,7 +2194,7 @@
       var currentSlotIndex = 0;
       var barsPlayed = 1;
       var step = 0;
-      var nextTime = ctx.currentTime + 0.002;
+      var nextTime = ctx.currentTime + 0.001;
       var hubTimer = null;
       var totalLoops = projectSlots.length;
       var currentPattern = projectSlots[0];
@@ -2214,20 +2215,17 @@
         var switchTime = null;
         var nextPattern = null;
         
-        while(nextTime < ctx.currentTime + 0.05){
-          // Pass full step (0-63) for bass/lead/piano, drums use step % 16
+        while(nextTime < ctx.currentTime + 0.04){
           playLoopStep(currentPattern, step, nextTime);
           
           step++;
           nextTime += stepDur;
           
-          // Track bar progress (every 16 steps = 1 bar)
           if(step > 0 && step < 64 && step % 16 === 0){
             barsPlayed++;
             statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops + " - Bar " + barsPlayed + "/4";
           }
           
-          // After 64 steps (4 bars), move to next slot
           if(step >= 64){
             step = 0;
             barsPlayed = 1;
@@ -2238,21 +2236,18 @@
               break;
             }
             
-            // Switch to next slot seamlessly
             switchTime = nextTime;
-            nextPattern = projectSlots[currentSlotIndex];
-            currentPattern = nextPattern;
+            currentPattern = projectSlots[currentSlotIndex];
+            nextPattern = currentPattern;
             loopSlots[0] = currentPattern;
             statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops;
           }
         }
         
-        // Apply mixer at exact switch time
         if(nextPattern && switchTime){
           applyProjectMixer(nextPattern, switchTime);
         }
         
-        // Defer UI update
         if(statusMsg){
           requestAnimationFrame(function(){ setStatus(statusMsg); });
         }
@@ -2260,13 +2255,11 @@
         if(switchToNextProject){
           hubPlayIndex++;
           if(hubTimer) clearTimeout(hubTimer);
-          // Continue immediately with preserved timing
-          var savedNextTime = nextTime;
-          playNextHubProjectSeamless(savedNextTime);
+          playNextHubProjectSeamless(nextTime);
           return;
         }
         
-        hubTimer = setTimeout(scheduleAllSlots, 10);
+        hubTimer = setTimeout(scheduleAllSlots, 8);
       }
       
       setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop 1/" + totalLoops);
@@ -2336,7 +2329,7 @@
         var switchTime = null;
         var nextPattern = null;
         
-        while(nextTime < ctx.currentTime + 0.05){
+        while(nextTime < ctx.currentTime + 0.04){
           playLoopStep(currentPattern, step, nextTime);
           
           step++;
@@ -2358,8 +2351,8 @@
             }
             
             switchTime = nextTime;
-            nextPattern = projectSlots[currentSlotIndex];
-            currentPattern = nextPattern;
+            currentPattern = projectSlots[currentSlotIndex];
+            nextPattern = currentPattern;
             loopSlots[0] = currentPattern;
             statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops;
           }
@@ -2376,12 +2369,11 @@
         if(switchToNextProject){
           hubPlayIndex++;
           if(hubTimer) clearTimeout(hubTimer);
-          var savedNextTime = nextTime;
-          playNextHubProjectSeamless(savedNextTime);
+          playNextHubProjectSeamless(nextTime);
           return;
         }
         
-        hubTimer = setTimeout(scheduleAllSlots, 10);
+        hubTimer = setTimeout(scheduleAllSlots, 8);
       }
       
       setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop 1/" + totalLoops);
@@ -3813,8 +3805,8 @@
     let rafId = null;
     let startTime = 0;
 
-    const AHEAD_SEC = 0.03;
-    const LOOKAHEAD_MS = 10;
+    const AHEAD_SEC = 0.025;
+    const LOOKAHEAD_MS = 8;
 
     function hzForNote(noteName, oct){
       const baseMidi = 45; // A2
