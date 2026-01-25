@@ -723,40 +723,52 @@
     @media print {
       * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       body { background: white !important; color: black !important; font-size: 10pt !important; }
-      header, footer, .seqControls, .barNav, .mixerGrid, #hubSection, 
-      .samplerArea, #masterPlay, #masterStop, .muteBtn, .trkVol,
-      .loopSlots, .pill, button, input[type="range"], .faderWrap,
-      .samplerBar, .drumToolsCompact, .card-mixer { display: none !important; }
-      .wrap { padding: 0 !important; gap: 10pt !important; }
-      .card { background: white !important; border: 2px solid #000 !important; padding: 8pt !important; page-break-inside: avoid; margin-bottom: 10pt !important; box-shadow: none !important; }
-      .cardHead { border-bottom: 1px solid #000 !important; padding-bottom: 4pt !important; margin-bottom: 6pt !important; }
-      .cardHead .title { color: black !important; font-size: 14pt !important; font-weight: bold !important; }
-      .body { padding: 0 !important; }
-      .grid { gap: 2pt !important; }
-      .row { gap: 1pt !important; grid-template-columns: 70px repeat(16, 1fr) !important; }
-      .cell { border: 1px solid #333 !important; background: white !important; min-height: 20px !important; border-radius: 2px !important; }
-      .cell.on { background: #000 !important; }
-      .cell.beatA, .cell.beatB { background: #f5f5f5 !important; }
-      .cell.beatA.on, .cell.beatB.on { background: #000 !important; }
-      .trackCell { font-size: 9pt !important; padding: 2pt 4pt !important; background: white !important; border: none !important; }
-      .trackCell .trkName { font-weight: bold !important; }
-      .trackCell .trkFile, .trackCell .trkVol { display: none !important; }
-      .tb_grid { gap: 2pt !important; }
-      .tb_grid .row { grid-template-columns: 40px repeat(16, 1fr) !important; }
-      .tb_cell { border: 1px solid #333 !important; background: white !important; min-height: 18px !important; font-size: 8pt !important; border-radius: 2px !important; }
-      .tb_cell.active { background: #000 !important; color: white !important; }
-      .tb_cell.bass-active { background: #000 !important; color: white !important; }
-      .tb_cell.lead-active { background: #000 !important; color: white !important; }
-      .tb_cell.piano-active { background: #000 !important; color: white !important; }
-      .tb_cell[style*="background"] { background: #000 !important; }
-      .noteLabel { font-size: 9pt !important; padding: 2pt !important; background: white !important; font-weight: bold !important; }
-      #printHeader { display: block !important; text-align: center; margin-bottom: 16pt; border-bottom: 2px solid #000; padding-bottom: 10pt; }
-      #printHeader h1 { font-size: 20pt; margin: 0 0 6pt 0; font-weight: bold; }
-      #printHeader p { font-size: 11pt; margin: 0; }
-      .printStepNums { display: flex !important; margin-bottom: 2pt; padding-left: 70px; }
-      .printStepNums span { flex: 1; text-align: center; font-size: 8pt; font-weight: bold; color: #333; }
-      .printStepNumsTB { display: flex !important; margin-bottom: 2pt; padding-left: 40px; }
-      .printStepNumsTB span { flex: 1; text-align: center; font-size: 7pt; font-weight: bold; color: #333; }
+      header, footer, .seqControls, .barNav, #hubSection, 
+      #masterPlay, #masterStop, .muteBtn, .trkVol,
+      .loopSlots, .pill, input[type="range"], .faderWrap,
+      .samplerBar, .drumToolsCompact, .card-mixer, .mixerGrid,
+      .tb_oct, .tb_stepNum { display: none !important; }
+      .wrap { padding: 10pt !important; gap: 12pt !important; display: block !important; }
+      .card { background: white !important; border: 1px solid #999 !important; padding: 8pt !important; page-break-inside: avoid; margin-bottom: 12pt !important; box-shadow: none !important; display: block !important; }
+      .cardHead { border-bottom: 1px solid #999 !important; padding-bottom: 4pt !important; margin-bottom: 8pt !important; display: block !important; }
+      .cardHead .title { color: black !important; font-size: 12pt !important; font-weight: bold !important; display: block !important; }
+      .body { padding: 0 !important; display: block !important; }
+      
+      /* Drum grid */
+      .grid { gap: 2pt !important; display: grid !important; }
+      .row { gap: 1pt !important; grid-template-columns: 60px repeat(16, 1fr) !important; display: grid !important; }
+      .cell { border: 1px solid #999 !important; background: white !important; min-height: 16px !important; border-radius: 1px !important; display: block !important; }
+      .cell.on { background: #888 !important; }
+      .cell.beatA, .cell.beatB { background: white !important; border-color: #999 !important; }
+      .cell.beatA.on, .cell.beatB.on { background: #888 !important; }
+      .trackCell { font-size: 8pt !important; padding: 1pt 2pt !important; background: white !important; border: none !important; display: flex !important; align-items: center !important; }
+      .trackCell .trkName { font-weight: bold !important; font-size: 7pt !important; }
+      .trackCell .trkFile, .trackCell .trkVol, .trackCell .trkLeft { display: none !important; }
+      
+      /* Bass/Lead/Piano grids */
+      .tb_grid { display: flex !important; gap: 1pt !important; flex-wrap: nowrap !important; }
+      .tb_labels { display: flex !important; flex-direction: column !important; gap: 1pt !important; width: 25px !important; }
+      .tb_labels > div { font-size: 6pt !important; height: 12px !important; display: flex !important; align-items: center !important; color: black !important; }
+      .tb_labels .muted { color: black !important; font-weight: bold !important; }
+      .tb_col { display: flex !important; flex-direction: column !important; gap: 1pt !important; flex: 1 !important; }
+      .tb_spacer { display: none !important; }
+      .tb_pad { border: 1px solid #999 !important; background: white !important; min-height: 12px !important; font-size: 6pt !important; border-radius: 1px !important; display: flex !important; align-items: center !important; justify-content: center !important; color: black !important; }
+      .tb_pad.on, .bass .tb_pad.on, .lead .tb_pad.on, .piano .tb_pad.on { background: #888 !important; border-color: #888 !important; color: white !important; }
+      .tb_pad.on-other, .piano .tb_pad.on-other { background: #bbb !important; border-color: #bbb !important; color: black !important; }
+      .tb_col.beatA .tb_pad, .tb_col.beatB .tb_pad { background: white !important; }
+      .tb_col.beatA .tb_pad.on, .tb_col.beatB .tb_pad.on { background: #888 !important; }
+      .tb_col.beatA .tb_pad.on-other, .tb_col.beatB .tb_pad.on-other { background: #bbb !important; }
+      
+      /* Print header */
+      #printHeader { display: block !important; text-align: center; margin-bottom: 16pt; border-bottom: 1px solid #999; padding-bottom: 10pt; }
+      #printHeader h1 { font-size: 16pt; margin: 0 0 6pt 0; font-weight: bold; }
+      #printHeader p { font-size: 10pt; margin: 0; }
+      
+      /* Step numbers */
+      .printStepNums { display: flex !important; margin-bottom: 2pt; padding-left: 60px; }
+      .printStepNums span { flex: 1; text-align: center; font-size: 7pt; font-weight: bold; color: #666; }
+      .printStepNumsTB { display: flex !important; margin-bottom: 2pt; padding-left: 25px; }
+      .printStepNumsTB span { flex: 1; text-align: center; font-size: 6pt; font-weight: bold; color: #666; }
       #printStepNumbers { display: flex !important; }
     }
     #printHeader { display: none; }
