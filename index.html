@@ -1333,24 +1333,31 @@
           var currentPattern = loopSlots[playingSlot];
           if(!currentPattern) return;
           
+          // Pass full step (0-63) for bass/lead/piano, drums use step % 16
           playLoopStep(currentPattern, loopStep, loopNextTime);
           
           loopStep++;
-          if(loopStep >= 16){
-            loopStep = 0;
+          
+          // Track bar progress (every 16 steps = 1 bar)
+          // Increment after completing step 15, 31, 47
+          if(loopStep > 0 && loopStep < 64 && loopStep % 16 === 0){
             loopBarsPlayed++;
             needsUIUpdate = true;
+          }
+          
+          // After 64 steps (4 bars), loop back
+          if(loopStep >= 64){
+            loopStep = 0;
+            loopBarsPlayed = 1;
+            needsUIUpdate = true;
             
-            if(loopBarsPlayed > 4){
-              loopBarsPlayed = 1;
-              // Check for pending loop switch
-              if(pendingPlaySlot >= 0){
-                switchTime = loopNextTime;
-                playingSlot = pendingPlaySlot;
-                pendingPlaySlot = -1;
-                newPattern = loopSlots[playingSlot];
-                newStatusMsg = "Playing Loop " + (playingSlot + 1);
-              }
+            // Check for pending loop switch at 4-bar boundary
+            if(pendingPlaySlot >= 0){
+              switchTime = loopNextTime;
+              playingSlot = pendingPlaySlot;
+              pendingPlaySlot = -1;
+              newPattern = loopSlots[playingSlot];
+              newStatusMsg = "Playing Loop " + (playingSlot + 1);
             }
           }
           
@@ -1384,14 +1391,18 @@
     }
     
     // Play a single step from pattern data
+    // stepIndex is 0-63 for full 4-bar playback
     function playLoopStep(pattern, stepIndex, time){
       if(!ctx || !pattern || !isFinite(time)) return;
+      
+      // Drums are 16-step patterns that repeat
+      var drumStep = stepIndex % 16;
       
       // Play drums
       if(pattern.drums){
         for(var i = 0; i < pattern.drums.length; i++){
           var drumTrack = pattern.drums[i];
-          if(drumTrack.pattern && drumTrack.pattern[stepIndex]){
+          if(drumTrack.pattern && drumTrack.pattern[drumStep]){
             var tr = tracks.find(function(t){ return t.key === drumTrack.key; });
             if(tr && tr.buffer){
               if(drumTrack.key === "kick") triggerSidechain(time);
