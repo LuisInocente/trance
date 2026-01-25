@@ -1106,9 +1106,36 @@
 
   <footer>
     <button id="printBtn" class="smallBtn">🖨️ Print</button>
+    <button id="infoBtn" class="smallBtn">ℹ️ Info</button>
     <div class="footerSpacer"></div>
     <div class="footerRight">Muziek met meester Luis 2026</div>
   </footer>
+
+  <!-- Info Modal -->
+  <div id="infoModal" class="modal" style="display:none;">
+    <div class="modalContent" style="max-width:400px;">
+      <div class="modalHead">
+        <span>ℹ️ Muziek Maker</span>
+        <button id="infoCloseBtn" class="closeBtn">✕</button>
+      </div>
+      <div class="modalBody" style="text-align:left; font-size:13px;">
+        <p style="margin:0 0 10px 0;"><strong>Wat leer je?</strong></p>
+        <ul style="margin:0 0 12px 0; padding-left:20px;">
+          <li>Ritme en beats maken</li>
+          <li>Melodieën componeren</li>
+          <li>Instrumenten combineren</li>
+          <li>Loops opnemen en afspelen</li>
+        </ul>
+        <p style="margin:0 0 10px 0;"><strong>Hoe werkt het?</strong></p>
+        <ul style="margin:0; padding-left:20px;">
+          <li><strong>Drums:</strong> Klik vakjes aan/uit</li>
+          <li><strong>Bass/Lead/Piano:</strong> Klik een noot per stap</li>
+          <li><strong>Loop opnemen:</strong> Klik 1-4, druk Play</li>
+          <li><strong>Loop afspelen:</strong> Klik op gevulde loop</li>
+        </ul>
+      </div>
+    </div>
+  </div>
 
   <script>
   (() => {
@@ -4472,6 +4499,23 @@
       createPrintGrid("pianoSection", pianoState, "piano");
       
       window.print();
+    });
+
+    // Info modal
+    const infoBtn = document.getElementById("infoBtn");
+    const infoModal = document.getElementById("infoModal");
+    const infoCloseBtn = document.getElementById("infoCloseBtn");
+    
+    infoBtn.addEventListener("click", () => {
+      infoModal.style.display = "flex";
+    });
+    
+    infoCloseBtn.addEventListener("click", () => {
+      infoModal.style.display = "none";
+    });
+    
+    infoModal.addEventListener("click", (e) => {
+      if(e.target === infoModal) infoModal.style.display = "none";
     });
   })();
   </script>
