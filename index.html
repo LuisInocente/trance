@@ -373,8 +373,8 @@
       touch-action:manipulation;
     }
 
-    .row{ display:grid; grid-template-columns: 200px repeat(16,1fr); gap:2px; align-items:center; }
-    .row+.row{ border-top:none; margin-top:2px; }
+    .row{ display:grid; grid-template-columns: 200px repeat(16,1fr); gap:1px; }
+    .row+.row{ border-top:1px solid var(--gridBorder); }
 
     .trackCell{
       display:flex;
@@ -924,9 +924,9 @@
           <button id="pianoReset" class="smallBtn">Reset</button>
           <div class="pill" style="gap:4px;">
             <span>Oct</span>
-            <button type="button" id="pianoOctHi" class="octSelBtn">+1</button>
-            <button type="button" id="pianoOctMid" class="octSelBtn active">0</button>
             <button type="button" id="pianoOctLo" class="octSelBtn">-1</button>
+            <button type="button" id="pianoOctMid" class="octSelBtn active">0</button>
+            <button type="button" id="pianoOctHi" class="octSelBtn">+1</button>
           </div>
           <div class="pill"><span>Vol</span><input id="pianoVol" type="range" min="0" max="1" step="0.01" value="0.7"></div>
           <div class="pill"><span>Reverb</span><input id="pianoReverb" type="range" min="0" max="1" step="0.01" value="0.15"></div>
@@ -1339,6 +1339,7 @@
           playLoopStep(currentPattern, loopStep, loopNextTime);
           
           loopStep++;
+          loopNextTime += stepDur;
           
           // Track bar progress (every 16 steps = 1 bar)
           // Increment after completing step 15, 31, 47
@@ -1362,8 +1363,6 @@
               newStatusMsg = "Playing Loop " + (playingSlot + 1);
             }
           }
-          
-          loopNextTime += stepDur;
         }
         
         // Apply new loop's mixer at the exact switch time
@@ -1986,6 +1985,7 @@
           playLoopStep(currentPattern, step, nextTime);
           
           step++;
+          nextTime += stepDur;
           
           // Track bar progress (every 16 steps = 1 bar)
           if(step > 0 && step < 64 && step % 16 === 0){
@@ -2011,8 +2011,6 @@
             loopSlots[0] = currentPattern;
             statusMsg = project.name + " - Loop " + (currentSlotIndex + 1) + "/" + projectSlots.length;
           }
-          
-          nextTime += stepDur;
         }
         
         // Apply mixer at exact switch time
@@ -2221,6 +2219,7 @@
           playLoopStep(currentPattern, step, nextTime);
           
           step++;
+          nextTime += stepDur;
           
           // Track bar progress (every 16 steps = 1 bar)
           if(step > 0 && step < 64 && step % 16 === 0){
@@ -2246,8 +2245,6 @@
             loopSlots[0] = currentPattern;
             statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops;
           }
-          
-          nextTime += stepDur;
         }
         
         // Apply mixer at exact switch time
@@ -2346,6 +2343,7 @@
           playLoopStep(currentPattern, step, nextTime);
           
           step++;
+          nextTime += stepDur;
           
           if(step > 0 && step < 64 && step % 16 === 0){
             barsPlayed++;
@@ -2368,8 +2366,6 @@
             loopSlots[0] = currentPattern;
             statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops;
           }
-          
-          nextTime += stepDur;
         }
         
         if(nextPattern && switchTime){
