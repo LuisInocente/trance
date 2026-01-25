@@ -557,6 +557,12 @@
       border-radius:8px;
       touch-action:manipulation;
       min-height:26px;
+      font-size:9px;
+      font-weight:bold;
+      color:#fff;
+      display:flex;
+      align-items:center;
+      justify-content:center;
     }
     .tb_pad.nat{ background:var(--noteNat); }
     .bass .tb_pad.on{ background:var(--bassOn)!important; border-color:var(--bassOn)!important; }
@@ -3139,7 +3145,10 @@
         for(const n of NOTE_NAMES){
           const pad = document.createElement("button");
           pad.className = "tb_pad nat";
-          if(state.steps[s].note === n) pad.classList.add("on");
+          if(state.steps[s].note === n){
+            pad.classList.add("on");
+            pad.textContent = n;
+          }
 
           pad.addEventListener("click", async () => {
             await resumeAudio();
@@ -3162,6 +3171,10 @@
     // Render piano grid with chord support (multiple notes per step)
     function renderPianoGrid(rootEl, offset = 0){
       rootEl.innerHTML = "";
+      
+      // Ensure pianoState.steps exists and has proper format
+      if(!pianoState.steps) pianoState.steps = [];
+      while(pianoState.steps.length < 64) pianoState.steps.push([]);
 
       const labels = document.createElement("div");
       labels.className = "tb_labels";
@@ -3211,7 +3224,12 @@
         octWrap.className = "tb_oct";
 
         // Get notes for this step (array of {note, oct})
-        const stepNotes = pianoState.steps[s] || [];
+        // Ensure it's always an array
+        let stepNotes = pianoState.steps[s];
+        if(!Array.isArray(stepNotes)){
+          stepNotes = [];
+          pianoState.steps[s] = stepNotes;
+        }
         const hasHighOct = stepNotes.some(n => n.oct === 1);
         const hasMidOct = stepNotes.some(n => n.oct === 0);
         const hasLowOct = stepNotes.some(n => n.oct === -1);
@@ -3263,14 +3281,20 @@
           
           if(noteAtCurrentOct){
             pad.classList.add("on");
+            pad.textContent = n;
           } else if(noteAtAnyOct){
             // Note exists at different octave - show dimmed
             pad.classList.add("on-other");
+            pad.textContent = n;
           }
 
           pad.addEventListener("click", async () => {
             await resumeAudio();
             
+            // Ensure step is an array
+            if(!Array.isArray(pianoState.steps[s])){
+              pianoState.steps[s] = [];
+            }
             const notes = pianoState.steps[s];
             const existingIdx = notes.findIndex(sn => sn.note === n && sn.oct === pianoCurrentOct);
             
@@ -3849,6 +3873,21 @@
 
     masterPlayBtn.addEventListener("click", masterPlay);
     masterStopBtn.addEventListener("click", masterStop);
+
+    // Spacebar to play/stop
+    document.addEventListener("keydown", (e) => {
+      // Don't trigger if typing in an input
+      if(e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+      
+      if(e.code === "Space"){
+        e.preventDefault();
+        if(isRunning){
+          masterStop();
+        } else {
+          masterPlay();
+        }
+      }
+    });
 
     // ---------- save / load ----------
     const saveFileBtn = document.getElementById("saveFileBtn");
