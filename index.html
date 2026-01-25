@@ -529,6 +529,10 @@
       height:100%;
       min-height:0;
     }
+    /* Piano grid without octave buttons */
+    .tb_grid.piano .tb_labels, .tb_grid.piano .tb_col{
+      grid-template-rows: 14px repeat(7, minmax(28px, 1fr));
+    }
     .tb_labels{ font-size:10px; color:var(--muted); user-select:none; }
     .tb_labels .muted{ font-size:9px; font-weight:950; letter-spacing:.2px; }
     .tb_stepNum{ text-align:center; font-size:10px; font-weight:1000; user-select:none; }
@@ -578,6 +582,22 @@
     .piano .tb_octBtn.on.oct-up{ background:#0ea5e9!important; border-color:#0284c7!important; color:#fff; }
     .piano .tb_octBtn.on.oct-mid{ background:var(--pianoOn)!important; border-color:var(--pianoOn)!important; color:#fff; }
     .piano .tb_octBtn.on.oct-down{ background:#075985!important; border-color:#0c4a6e!important; color:#fff; }
+
+    /* Piano octave selector buttons */
+    .octSelBtn{
+      padding:2px 6px;
+      font-size:11px;
+      border:1px solid var(--border);
+      background:var(--card);
+      color:var(--text);
+      border-radius:4px;
+      cursor:pointer;
+    }
+    .octSelBtn.active{
+      background:var(--pianoOn);
+      border-color:var(--pianoOn);
+      color:#fff;
+    }
 
     /* Beat shading - alternating every 4 steps */
     .tb_col.beatA .tb_pad.nat{ background:#484848; }
@@ -888,6 +908,12 @@
       <div class="body piano">
         <div class="seqControls">
           <button id="pianoReset" class="smallBtn">Reset</button>
+          <div class="pill" style="gap:2px;">
+            <span>Oct</span>
+            <button id="pianoOctHi" class="octSelBtn">+1</button>
+            <button id="pianoOctMid" class="octSelBtn active">0</button>
+            <button id="pianoOctLo" class="octSelBtn">-1</button>
+          </div>
           <div class="pill"><span>Vol</span><input id="pianoVol" type="range" min="0" max="1" step="0.01" value="0.7"></div>
           <div class="pill"><span>Reverb</span><input id="pianoReverb" type="range" min="0" max="1" step="0.01" value="0.3"></div>
         </div>
@@ -3171,6 +3197,7 @@
     // Render piano grid with chord support (multiple notes per step)
     function renderPianoGrid(rootEl, offset = 0){
       rootEl.innerHTML = "";
+      rootEl.classList.add("piano");
       
       // Ensure pianoState.steps exists and has proper format
       if(!pianoState.steps) pianoState.steps = [];
@@ -3183,16 +3210,6 @@
       l0.className = "muted";
       l0.textContent = "";
       labels.appendChild(l0);
-
-      // Octave selector label
-      const l1 = document.createElement("div");
-      l1.className = "muted";
-      l1.textContent = "Oct";
-      labels.appendChild(l1);
-
-      const l2 = document.createElement("div");
-      l2.className = "tb_spacer";
-      labels.appendChild(l2);
 
       for(const n of NOTE_NAMES){
         const ln = document.createElement("div");
@@ -3219,10 +3236,6 @@
         stepNum.textContent = String(s + 1);
         col.appendChild(stepNum);
 
-        // Octave buttons - these set the octave for THIS step's notes
-        const octWrap = document.createElement("div");
-        octWrap.className = "tb_oct";
-
         // Get notes for this step (array of {note, oct})
         // Ensure it's always an array
         let stepNotes = pianoState.steps[s];
@@ -3230,46 +3243,6 @@
           stepNotes = [];
           pianoState.steps[s] = stepNotes;
         }
-        const hasHighOct = stepNotes.some(n => n.oct === 1);
-        const hasMidOct = stepNotes.some(n => n.oct === 0);
-        const hasLowOct = stepNotes.some(n => n.oct === -1);
-
-        const btnTop = document.createElement("button");
-        btnTop.className = "tb_octBtn oct-up";
-        btnTop.textContent = "";
-        btnTop.classList.toggle("on", hasHighOct);
-        btnTop.addEventListener("click", () => { 
-          pianoCurrentOct = 1; 
-          // Update all octave buttons visually
-          renderPianoGrid(rootEl, offset);
-        });
-
-        const btnMid = document.createElement("button");
-        btnMid.className = "tb_octBtn oct-mid";
-        btnMid.textContent = "";
-        btnMid.classList.toggle("on", hasMidOct);
-        btnMid.addEventListener("click", () => { 
-          pianoCurrentOct = 0; 
-          renderPianoGrid(rootEl, offset);
-        });
-
-        const btnBot = document.createElement("button");
-        btnBot.className = "tb_octBtn oct-down";
-        btnBot.textContent = "";
-        btnBot.classList.toggle("on", hasLowOct);
-        btnBot.addEventListener("click", () => { 
-          pianoCurrentOct = -1; 
-          renderPianoGrid(rootEl, offset);
-        });
-
-        octWrap.appendChild(btnTop);
-        octWrap.appendChild(btnMid);
-        octWrap.appendChild(btnBot);
-        col.appendChild(octWrap);
-
-        const spacer = document.createElement("div");
-        spacer.className = "tb_spacer";
-        col.appendChild(spacer);
 
         for(const n of NOTE_NAMES){
           const pad = document.createElement("button");
@@ -3315,8 +3288,6 @@
 
         rootEl.appendChild(col);
       }
-
-      rootEl.classList.add("piano");
     }
 
     // ---------- synths ----------
@@ -3559,6 +3530,31 @@
     const pianoResetBtn = document.getElementById("pianoReset");
     const pianoVolEl = document.getElementById("pianoVol");
     const pianoReverbEl = document.getElementById("pianoReverb");
+    const pianoOctHi = document.getElementById("pianoOctHi");
+    const pianoOctMid = document.getElementById("pianoOctMid");
+    const pianoOctLo = document.getElementById("pianoOctLo");
+
+    function updatePianoOctButtons(){
+      pianoOctHi.classList.toggle("active", pianoCurrentOct === 1);
+      pianoOctMid.classList.toggle("active", pianoCurrentOct === 0);
+      pianoOctLo.classList.toggle("active", pianoCurrentOct === -1);
+    }
+
+    pianoOctHi.addEventListener("click", () => {
+      pianoCurrentOct = 1;
+      updatePianoOctButtons();
+      renderPianoGrid(pianoGridEl, pianoViewOffset);
+    });
+    pianoOctMid.addEventListener("click", () => {
+      pianoCurrentOct = 0;
+      updatePianoOctButtons();
+      renderPianoGrid(pianoGridEl, pianoViewOffset);
+    });
+    pianoOctLo.addEventListener("click", () => {
+      pianoCurrentOct = -1;
+      updatePianoOctButtons();
+      renderPianoGrid(pianoGridEl, pianoViewOffset);
+    });
 
     bassResetBtn.addEventListener("click", () => {
       bassState = makeSeqState(64);
