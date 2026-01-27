@@ -758,8 +758,8 @@
       .printStepRow .printStepNum { font-size: 5pt !important; text-align: center !important; color: #666 !important; }
       .printNoteRow { display: grid !important; grid-template-columns: 30px repeat(16, 1fr) !important; gap: 1px !important; }
       .printNoteRow .printLabel { font-size: 6pt !important; font-weight: bold !important; display: flex !important; align-items: center !important; }
-      .printCell { border: 1px solid #999 !important; background: white !important; min-height: 10px !important; }
-      .printCell.on { background: #888 !important; }
+      .printCell { border: 1px solid #999 !important; background: white !important; min-height: 10px !important; font-size: 5pt !important; display: flex !important; align-items: center !important; justify-content: center !important; }
+      .printCell.on { background: #888 !important; color: white !important; }
     }
     
     /* Hide print containers when not printing */
@@ -4411,17 +4411,18 @@
           const barDiv = document.createElement("div");
           barDiv.className = "printBar";
           
-          // Step numbers row
+          // Step numbers row - continuous numbering
           const stepNums = document.createElement("div");
           stepNums.className = "printStepRow";
           const labelSpacer = document.createElement("span");
           labelSpacer.className = "printLabel";
-          labelSpacer.textContent = "Bar " + (bar + 1);
+          labelSpacer.textContent = "";
           stepNums.appendChild(labelSpacer);
-          for(let i = 1; i <= 16; i++){
+          for(let i = 0; i < 16; i++){
+            const stepIdx = bar * 16 + i + 1;
             const span = document.createElement("span");
             span.className = "printStepNum";
-            span.textContent = i;
+            span.textContent = stepIdx;
             stepNums.appendChild(span);
           }
           barDiv.appendChild(stepNums);
@@ -4444,13 +4445,25 @@
               if(kind === "piano"){
                 // Piano has array of notes per step
                 const stepNotes = state.steps[stepIdx] || [];
-                const hasNote = stepNotes.some(n => n.note === noteName);
-                if(hasNote) cell.classList.add("on");
+                const noteData = stepNotes.find(n => n.note === noteName);
+                if(noteData){
+                  cell.classList.add("on");
+                  let txt = noteName;
+                  if(noteData.oct !== 0){
+                    txt += (noteData.oct > 0 ? "+" : "") + noteData.oct;
+                  }
+                  cell.textContent = txt;
+                }
               } else {
                 // Bass/Lead have single note per step
                 const stepData = state.steps[stepIdx];
                 if(stepData && stepData.note === noteName){
                   cell.classList.add("on");
+                  let txt = noteName;
+                  if(stepData.oct !== 0){
+                    txt += (stepData.oct > 0 ? "+" : "") + stepData.oct;
+                  }
+                  cell.textContent = txt;
                 }
               }
               
