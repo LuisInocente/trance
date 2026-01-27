@@ -276,6 +276,53 @@
       font-weight:900;
     }
 
+    .recBtn{
+      width:24px;
+      height:24px;
+      border-radius:50%;
+      border:2px solid #dc2626;
+      background:transparent;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:0;
+      transition: all 0.15s ease;
+    }
+    .recBtn:hover{
+      border-color:#ef4444;
+      background:rgba(220,38,38,0.1);
+    }
+    .recBtn:active{
+      transform:scale(0.95);
+    }
+    .recBtn .recDot{
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:#dc2626;
+      transition: all 0.15s ease;
+    }
+    .recBtn:hover .recDot{
+      background:#ef4444;
+    }
+    .recBtn.recording{
+      border-color:#ef4444;
+      animation: recPulse 0.8s ease-in-out infinite;
+    }
+    .recBtn.recording .recDot{
+      background:#ef4444;
+      animation: recDotPulse 0.8s ease-in-out infinite;
+    }
+    @keyframes recPulse{
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+      50% { box-shadow: 0 0 0 4px rgba(239,68,68,0); }
+    }
+    @keyframes recDotPulse{
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(0.85); }
+    }
+
     .body{
       padding:8px;
       display:flex;
@@ -884,7 +931,7 @@
       <div class="body">
         <div class="samplerBar">
           <strong style="font-size:12px">Sample 1</strong>
-          <button id="s1RecBtn" class="smallBtn">2s</button>
+          <button id="s1RecBtn" class="recBtn" title="Record 2 seconds"><span class="recDot"></span></button>
           <button id="s1PlayBtn" class="smallBtn" disabled>▶</button>
           <button id="s1ClearBtn" class="smallBtn" disabled>✕</button>
 
@@ -907,7 +954,7 @@
 
         <div class="samplerBar">
           <strong style="font-size:12px">Sample 2</strong>
-          <button id="s2RecBtn" class="smallBtn">2s</button>
+          <button id="s2RecBtn" class="recBtn" title="Record 2 seconds"><span class="recDot"></span></button>
           <button id="s2PlayBtn" class="smallBtn" disabled>▶</button>
           <button id="s2ClearBtn" class="smallBtn" disabled>✕</button>
 
@@ -1175,7 +1222,7 @@
     const loopClearBtn = document.getElementById("loopClearBtn");
 
     // Loop state: each slot stores pattern data (like MIDI), not audio
-    // Pattern data: { drums: [...], bass: {...}, lead: {...}, params: {...} }
+    // Pattern data: { drums: [...], bass: {...}, lead: {...}, params: {...}, loopLength: 32|64 }
     const loopSlots = [null, null, null, null];
     let armedSlot = -1; // Which slot is armed for recording (-1 = none)
     let recordingSlot = -1; // Which slot is currently recording (-1 = none)
@@ -1189,10 +1236,23 @@
     let loopStep = 0; // Current step in independent loop playback
     let loopNextTime = 0; // Next scheduled time for independent loop
 
+    // Check if bars 3-4 (steps 32-63) have any notes
+    function hasBars34Notes(bassSteps, leadSteps, pianoSteps){
+      for(let i = 32; i < 64; i++){
+        if(bassSteps[i] && bassSteps[i].note) return true;
+        if(leadSteps[i] && leadSteps[i].note) return true;
+        if(pianoSteps[i] && pianoSteps[i].length > 0) return true;
+      }
+      return false;
+    }
+
     function updateLoopUI(){
       loopBtns.forEach((btn, i) => {
         btn.classList.remove("armed", "recording", "ready", "playing", "pending");
         loopStatuses[i].classList.remove("armed", "recording", "ready", "playing", "pending");
+        
+        const slot = loopSlots[i];
+        const totalBars = slot && slot.loopLength === 32 ? 2 : 4;
         
         if(i === armedSlot){
           btn.classList.add("armed");
@@ -1204,16 +1264,18 @@
           loopStatuses[i].classList.add("recording");
         } else if(i === pendingPlaySlot){
           btn.classList.add("pending");
-          const barsLeft = 5 - loopBarsPlayed; // loopBarsPlayed is 1-4
+          const playingPattern = loopSlots[playingSlot];
+          const playingTotalBars = playingPattern && playingPattern.loopLength === 32 ? 2 : 4;
+          const barsLeft = playingTotalBars + 1 - loopBarsPlayed;
           loopStatuses[i].textContent = barsLeft > 0 ? `In ${barsLeft}` : "Next";
           loopStatuses[i].classList.add("pending");
         } else if(i === playingSlot){
           btn.classList.add("playing");
-          loopStatuses[i].textContent = `${loopBarsPlayed}/4`;
+          loopStatuses[i].textContent = `${loopBarsPlayed}/${totalBars}`;
           loopStatuses[i].classList.add("playing");
-        } else if(loopSlots[i]){
+        } else if(slot){
           btn.classList.add("ready");
-          loopStatuses[i].textContent = "Ready";
+          loopStatuses[i].textContent = totalBars === 2 ? "2 bar" : "Ready";
           loopStatuses[i].classList.add("ready");
         } else {
           loopStatuses[i].textContent = "Empty";
@@ -1307,28 +1369,34 @@
             piano: mute.piano ? 1 : 0
           }
         },
-        tempo: tempo()
+        tempo: tempo(),
+        loopLength: hasBars34Notes(bassState.steps, leadState.steps, pianoState.steps) ? 64 : 32
       };
       
       loopSlots[slot] = patternData;
       
+      var totalBars = patternData.loopLength === 32 ? 2 : 4;
       updateLoopUI();
-      setStatus("Recording Loop " + (slot + 1) + "... (Bar 1/4)");
+      setStatus("Recording Loop " + (slot + 1) + "... (Bar 1/" + totalBars + ")");
     }
 
     function incrementBarCount(){
       if(recordingSlot < 0) return false;
+      var pattern = loopSlots[recordingSlot];
+      var totalBars = pattern && pattern.loopLength === 32 ? 2 : 4;
       recordingBarCount++;
       updateLoopUI();
-      setStatus(`Recording Loop ${recordingSlot + 1}... (Bar ${recordingBarCount}/4)`);
-      return recordingBarCount >= 4;
+      setStatus(`Recording Loop ${recordingSlot + 1}... (Bar ${recordingBarCount}/${totalBars})`);
+      return recordingBarCount >= totalBars;
     }
 
     function stopLoopRecording(){
       if(recordingSlot < 0) return;
       
       const slot = recordingSlot;
-      setStatus("Loop " + (slot + 1) + " recorded!");
+      var pattern = loopSlots[slot];
+      var totalBars = pattern && pattern.loopLength === 32 ? 2 : 4;
+      setStatus("Loop " + (slot + 1) + " recorded! (" + totalBars + " bars)");
       
       recordingSlot = -1;
       recordingBarCount = 0;
@@ -1405,6 +1473,8 @@
         var switchTime = null;
         var newPattern = null;
         var currentPattern = loopSlots[playingSlot];
+        var loopLength = currentPattern && currentPattern.loopLength === 32 ? 32 : 64;
+        var totalBars = loopLength === 32 ? 2 : 4;
         
         while(loopNextTime < ctx.currentTime + lookAhead){
           if(!currentPattern) return;
@@ -1416,23 +1486,24 @@
           loopNextTime += cachedStepDur;
           
           // Track bar progress (every 16 steps = 1 bar)
-          if(loopStep > 0 && loopStep < 64 && loopStep % 16 === 0){
+          if(loopStep > 0 && loopStep < loopLength && loopStep % 16 === 0){
             loopBarsPlayed++;
             needsUIUpdate = true;
           }
           
-          // After 64 steps (4 bars), loop back
-          if(loopStep >= 64){
+          // After loopLength steps, loop back
+          if(loopStep >= loopLength){
             loopStep = 0;
             loopBarsPlayed = 1;
             needsUIUpdate = true;
             
-            // Check for pending loop switch at 4-bar boundary
+            // Check for pending loop switch at boundary
             if(pendingPlaySlot >= 0){
               switchTime = loopNextTime;
               playingSlot = pendingPlaySlot;
               pendingPlaySlot = -1;
               currentPattern = loopSlots[playingSlot];
+              loopLength = currentPattern && currentPattern.loopLength === 32 ? 32 : 64;
               newPattern = currentPattern;
               newStatusMsg = "Playing Loop " + (playingSlot + 1);
             }
@@ -1808,7 +1879,8 @@
           piano: { vol: p[8] || 0.7, reverb: p[9] || 0.3 },
           mixer: { dV: m[0], bV: m[1], lV: m[2], pV: m[3] || 0.7, dF: m[4] || 1, bF: m[5] || 1, lF: m[6] || 1, pF: m[7] || 1 },
           mutes: { drum: mt[0], bass: mt[1], lead: mt[2], piano: mt[3] || 0 }
-        }
+        },
+        loopLength: d.ll || 64
       };
     }
     
@@ -1898,7 +1970,8 @@
             slot.params.mutes.bass ? 1 : 0,
             slot.params.mutes.lead ? 1 : 0,
             slot.params.mutes.piano ? 1 : 0
-          ] : [0,0,0,0]
+          ] : [0,0,0,0],
+          ll: slot.loopLength || 64
         };
       }
       
@@ -2056,6 +2129,8 @@
         var statusMsg = null;
         var switchTime = null;
         var nextPattern = null;
+        var loopLength = currentPattern && currentPattern.loopLength === 32 ? 32 : 64;
+        var totalBars = loopLength === 32 ? 2 : 4;
         
         while(nextTime < ctx.currentTime + 0.04){
           playLoopStep(currentPattern, step, nextTime);
@@ -2063,12 +2138,12 @@
           step++;
           nextTime += stepDur;
           
-          if(step > 0 && step < 64 && step % 16 === 0){
+          if(step > 0 && step < loopLength && step % 16 === 0){
             barsPlayed++;
-            statusMsg = project.name + " - Loop " + (currentSlotIndex + 1) + "/" + projectSlots.length + " - Bar " + barsPlayed + "/4";
+            statusMsg = project.name + " - Loop " + (currentSlotIndex + 1) + "/" + projectSlots.length + " - Bar " + barsPlayed + "/" + totalBars;
           }
           
-          if(step >= 64){
+          if(step >= loopLength){
             step = 0;
             barsPlayed = 1;
             currentSlotIndex++;
@@ -2079,6 +2154,8 @@
             
             switchTime = nextTime;
             currentPattern = projectSlots[currentSlotIndex];
+            loopLength = currentPattern && currentPattern.loopLength === 32 ? 32 : 64;
+            totalBars = loopLength === 32 ? 2 : 4;
             nextPattern = currentPattern;
             loopSlots[0] = currentPattern;
             statusMsg = project.name + " - Loop " + (currentSlotIndex + 1) + "/" + projectSlots.length;
@@ -2297,6 +2374,8 @@
         var switchToNextProject = false;
         var switchTime = null;
         var nextPattern = null;
+        var loopLength = currentPattern && currentPattern.loopLength === 32 ? 32 : 64;
+        var totalBars = loopLength === 32 ? 2 : 4;
         
         while(nextTime < ctx.currentTime + 0.04){
           playLoopStep(currentPattern, step, nextTime);
@@ -2304,12 +2383,12 @@
           step++;
           nextTime += stepDur;
           
-          if(step > 0 && step < 64 && step % 16 === 0){
+          if(step > 0 && step < loopLength && step % 16 === 0){
             barsPlayed++;
-            statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops + " - Bar " + barsPlayed + "/4";
+            statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops + " - Bar " + barsPlayed + "/" + totalBars;
           }
           
-          if(step >= 64){
+          if(step >= loopLength){
             step = 0;
             barsPlayed = 1;
             currentSlotIndex++;
@@ -2321,6 +2400,8 @@
             
             switchTime = nextTime;
             currentPattern = projectSlots[currentSlotIndex];
+            loopLength = currentPattern && currentPattern.loopLength === 32 ? 32 : 64;
+            totalBars = loopLength === 32 ? 2 : 4;
             nextPattern = currentPattern;
             loopSlots[0] = currentPattern;
             statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops;
@@ -2411,6 +2492,8 @@
         var switchToNextProject = false;
         var switchTime = null;
         var nextPattern = null;
+        var loopLength = currentPattern && currentPattern.loopLength === 32 ? 32 : 64;
+        var totalBars = loopLength === 32 ? 2 : 4;
         
         while(nextTime < ctx.currentTime + 0.04){
           playLoopStep(currentPattern, step, nextTime);
@@ -2418,12 +2501,12 @@
           step++;
           nextTime += stepDur;
           
-          if(step > 0 && step < 64 && step % 16 === 0){
+          if(step > 0 && step < loopLength && step % 16 === 0){
             barsPlayed++;
-            statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops + " - Bar " + barsPlayed + "/4";
+            statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops + " - Bar " + barsPlayed + "/" + totalBars;
           }
           
-          if(step >= 64){
+          if(step >= loopLength){
             step = 0;
             barsPlayed = 1;
             currentSlotIndex++;
@@ -2435,6 +2518,8 @@
             
             switchTime = nextTime;
             currentPattern = projectSlots[currentSlotIndex];
+            loopLength = currentPattern && currentPattern.loopLength === 32 ? 32 : 64;
+            totalBars = loopLength === 32 ? 2 : 4;
             nextPattern = currentPattern;
             loopSlots[0] = currentPattern;
             statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops;
@@ -3088,7 +3173,7 @@
       return buf;
     }
 
-    function trimBufferPrecise(buf, {thr=0.018, minRunMs=2.0, prerollMs=6.0, tailThr=0.012, tailHoldMs=25.0} = {}){
+    function trimBufferPrecise(buf, {thr=0.006, minRunMs=0.8, prerollMs=1.5, tailThr=0.004, tailHoldMs=12.0} = {}){
       const sr = buf.sampleRate;
       const len = buf.length;
       const ch0 = buf.getChannelData(0);
@@ -3097,34 +3182,38 @@
       const preroll = Math.floor(sr*(prerollMs/1000));
       const tailHold = Math.max(1, Math.floor(sr*(tailHoldMs/1000)));
 
-      let start=0, run=0, found=false;
-      for(let i=0;i<len;i++){
-        const a = Math.abs(ch0[i]);
-        if(a >= thr){
-          run++;
-          if(run >= minRun){
-            start = Math.max(0, i - run + 1 - preroll);
-            found = true;
-            break;
-          }
-        }else run = 0;
+      // Use RMS for more accurate detection
+      function getRMS(data, start, len){
+        let sum = 0;
+        for(let i = start; i < start + len && i < data.length; i++){
+          sum += data[i] * data[i];
+        }
+        return Math.sqrt(sum / len);
+      }
+
+      const windowSize = Math.floor(sr * 0.001); // 1ms window
+      
+      let start=0, found=false;
+      for(let i=0; i<len-windowSize; i+=windowSize){
+        const rms = getRMS(ch0, i, windowSize);
+        if(rms >= thr){
+          start = Math.max(0, i - preroll);
+          found = true;
+          break;
+        }
       }
       if(!found) return buf;
 
       let end=len;
-      let quietRun=0;
-      for(let i=len-1;i>=0;i--){
-        const a = Math.abs(ch0[i]);
-        if(a < tailThr){
-          quietRun++;
-          if(quietRun >= tailHold){
-            end = Math.min(len, i + quietRun);
-            break;
-          }
-        }else quietRun = 0;
+      for(let i=len-windowSize; i>=0; i-=windowSize){
+        const rms = getRMS(ch0, i, windowSize);
+        if(rms >= tailThr){
+          end = Math.min(len, i + windowSize + Math.floor(sr * 0.01)); // 10ms tail
+          break;
+        }
       }
 
-      const minKeep = Math.floor(sr*0.06);
+      const minKeep = Math.floor(sr*0.04);
       if(end - start < minKeep) end = Math.min(len, start + minKeep);
 
       start = Math.max(0, Math.min(start, len-1));
@@ -3150,21 +3239,43 @@
       if(_rec && _rec.state === "recording") return;
 
       _recWhich = which;
+      var recBtn = (which===1 ? s1RecBtn : s2RecBtn);
+      recBtn.classList.add("recording");
       (which===1 ? s1Status : s2Status).textContent = "Recording…";
       (which===1 ? s1PlayBtn : s2PlayBtn).disabled = true;
       (which===1 ? s1ClearBtn : s2ClearBtn).disabled = true;
 
       try{
         _stream = await navigator.mediaDevices.getUserMedia({
-          audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true }
+          audio:{ 
+            echoCancellation: false, 
+            noiseSuppression: false, 
+            autoGainControl: false,
+            sampleRate: 48000,
+            channelCount: 2
+          }
         });
 
         _chunks = [];
-        _rec = new MediaRecorder(_stream);
+        
+        // Use highest quality codec available
+        var mimeType = 'audio/webm;codecs=opus';
+        if(MediaRecorder.isTypeSupported('audio/webm;codecs=pcm')){
+          mimeType = 'audio/webm;codecs=pcm';
+        } else if(MediaRecorder.isTypeSupported('audio/wav')){
+          mimeType = 'audio/wav';
+        }
+        
+        _rec = new MediaRecorder(_stream, { 
+          mimeType: mimeType,
+          audioBitsPerSecond: 256000
+        });
 
         _rec.ondataavailable = (e)=>{ if(e.data && e.data.size) _chunks.push(e.data); };
 
         _rec.onstop = async ()=>{
+          var finishedBtn = (_recWhich===1 ? s1RecBtn : s2RecBtn);
+          finishedBtn.classList.remove("recording");
           const tr = (_recWhich===1) ? sample1Track : sample2Track;
           try{
             const blob = new Blob(_chunks, { type: _rec.mimeType || "audio/webm" });
@@ -3190,6 +3301,7 @@
 
       }catch(err){
         console.error(err);
+        (which===1 ? s1RecBtn : s2RecBtn).classList.remove("recording");
         (which===1 ? s1Status : s2Status).textContent = "Mic blocked";
         setSamplerUI(which, false);
       }
