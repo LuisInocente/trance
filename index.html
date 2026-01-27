@@ -4003,6 +4003,11 @@
     const AHEAD_SEC = 0.025;
     const LOOKAHEAD_MS = 8;
 
+    // Get loop length for main playback (32 if bars 3-4 empty, else 64)
+    function getMainLoopLength(){
+      return hasBars34Notes(bassState.steps, leadState.steps, pianoState.steps) ? 64 : 32;
+    }
+
     function hzForNote(noteName, oct){
       const baseMidi = 45; // A2
       const semi = NOTE_TO_SEMI[noteName];
@@ -4012,7 +4017,7 @@
       return 440 * Math.pow(2, (midi - 69) / 12);
     }
 
-    // BASS plays every 16th note step (64 steps = 4 bars)
+    // BASS plays every 16th note step (32 or 64 steps)
     function scheduleBass(step16, t){
       ensureSynths();
 
@@ -4024,11 +4029,11 @@
         const baseCut = clamp(+cutEl.value || 0, 0, 1);
         bassSynth.trigger({ freq, time:t, decay, gate:0.55, envAmt, baseCut01: baseCut, release:0.10, vel:1.0 });
       }
-      bassStep = (bassStep + 1) % 64;
+      bassStep = (bassStep + 1) % getMainLoopLength();
       applyBassParams(false);
     }
 
-    // LEAD plays every 16th note step (64 steps = 4 bars)
+    // LEAD plays every 16th note step (32 or 64 steps)
     function scheduleLead(step16, t){
       ensureSynths();
 
@@ -4040,11 +4045,11 @@
         const gate = clamp(+lGateEl.value || 0.55, 0.10, 1.0);
         leadSynth.trigger({ freq, time:t, decay:0.22, gate, envAmt, baseCut01: baseCut, release:0.11, vel:1.0 });
       }
-      leadStep = (leadStep + 1) % 64;
+      leadStep = (leadStep + 1) % getMainLoopLength();
       applyLeadParams(false);
     }
 
-    // PIANO plays every 16th note step (64 steps = 4 bars) - supports chords
+    // PIANO plays every 16th note step (32 or 64 steps) - supports chords
     function schedulePiano(step16, t){
       ensureSynths();
 
@@ -4059,7 +4064,7 @@
           }
         }
       }
-      pianoStep = (pianoStep + 1) % 64;
+      pianoStep = (pianoStep + 1) % getMainLoopLength();
     }
 
     var pendingRecordingUI = null;
