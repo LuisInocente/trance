@@ -1397,17 +1397,76 @@
       if(recordingSlot < 0) return;
       
       const slot = recordingSlot;
-      const pattern = loopSlots[slot];
       
-      // Check if bars 3-4 have notes and set loopLength for playback
-      if(pattern){
-        const hasNotes34 = hasBars34Notes(
-          pattern.bass ? pattern.bass.steps : [],
-          pattern.lead ? pattern.lead.steps : [],
-          pattern.piano ? pattern.piano.steps : []
-        );
-        pattern.loopLength = hasNotes34 ? 64 : 32;
+      // Helper to get numeric value with proper 0 handling
+      function getVal(el, def){
+        var v = parseFloat(el.value);
+        return isFinite(v) ? v : def;
       }
+      
+      // Re-capture pattern at end of recording to get final state
+      var patternData = {
+        drums: tracks.map(function(tr){
+          var drumMuted = !!tr.muted;
+          if(tr._ui && tr._ui.muteEl){
+            drumMuted = tr._ui.muteEl.classList.contains("muted");
+          }
+          return {
+            key: tr.key,
+            pattern: tr.pattern.slice(),
+            muted: drumMuted
+          };
+        }),
+        bass: {
+          steps: bassState.steps.map(function(s){ return { note: s.note, oct: s.oct }; })
+        },
+        lead: {
+          steps: leadState.steps.map(function(s){ return { note: s.note, oct: s.oct }; })
+        },
+        piano: {
+          steps: pianoState.steps.map(function(step){ 
+            return step.map(function(n){ return { note: n.note, oct: n.oct }; });
+          })
+        },
+        params: {
+          bass: {
+            cut: getVal(cutEl, 0),
+            res: getVal(resEl, 0),
+            env: getVal(envEl, 0),
+            dec: getVal(bDecayEl, 0.28)
+          },
+          lead: {
+            cut: getVal(lCutEl, 0),
+            res: getVal(lResEl, 0),
+            env: getVal(lEnvEl, 0),
+            gate: getVal(lGateEl, 0.55)
+          },
+          piano: {
+            vol: getVal(pianoVolEl, 0.7),
+            reverb: getVal(pianoReverbEl, 0.3)
+          },
+          mixer: {
+            dV: getVal(mDrumVolEl, 0.8),
+            bV: getVal(mBassVolEl, 0.75),
+            lV: getVal(mLeadVolEl, 0.7),
+            pV: getVal(mPianoVolEl, 0.7),
+            dF: getVal(mDrumLPFEl, 1),
+            bF: getVal(mBassLPFEl, 1),
+            lF: getVal(mLeadLPFEl, 1),
+            pF: getVal(mPianoLPFEl, 1)
+          },
+          mutes: {
+            drum: mute.drums ? 1 : 0,
+            bass: mute.bass ? 1 : 0,
+            lead: mute.lead ? 1 : 0,
+            piano: mute.piano ? 1 : 0
+          }
+        },
+        tempo: tempo(),
+        loopLength: 64 // Always play 4 bars
+      };
+      
+      loopSlots[slot] = patternData;
       
       setStatus("Loop " + (slot + 1) + " recorded!");
       
