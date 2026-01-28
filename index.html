@@ -472,21 +472,29 @@
       max-width:120px;
     }
 
-    /* per-drum volume slider ONLY */
-    .trkVol{
+    /* per-drum mute button */
+    .drumMuteBtn{
       flex:0 0 auto;
+      width:24px;
+      height:24px;
+      border-radius:6px;
+      border:1px solid var(--border);
+      background:var(--card);
+      cursor:pointer;
       display:flex;
       align-items:center;
-      padding:2px 6px;
-      border:1px solid var(--border);
-      border-radius:999px;
-      height:24px;
-      background:var(--card);
-      touch-action:pan-x;
+      justify-content:center;
+      font-size:12px;
+      color:var(--text);
+      transition: all 0.1s ease;
     }
-    .trkVol input[type="range"]{
-      width:60px;
-      touch-action:pan-x;
+    .drumMuteBtn:hover{
+      background:var(--border);
+    }
+    .drumMuteBtn.muted{
+      background:#dc2626;
+      border-color:#dc2626;
+      color:#fff;
     }
 
     .cell{
@@ -771,7 +779,7 @@
       * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       body { background: white !important; color: black !important; font-size: 10pt !important; }
       header, footer, .seqControls, .barNav, #hubSection, 
-      #masterPlay, #masterStop, .muteBtn, .trkVol,
+      #masterPlay, #masterStop, .muteBtn, .drumMuteBtn,
       .loopSlots, .pill, input[type="range"], .faderWrap,
       .samplerBar, .drumToolsCompact, .card-mixer, .mixerGrid,
       .tb_oct, .tb_stepNum, .tb_grid { display: none !important; }
@@ -793,7 +801,7 @@
       .headerCell { background: white !important; color: black !important; font-size: 6pt !important; padding: 2pt !important; border: none !important; }
       .trackCell { font-size: 7pt !important; padding: 1pt 2pt !important; background: white !important; border: none !important; display: flex !important; align-items: center !important; }
       .trackCell .trackName { font-weight: bold !important; font-size: 6pt !important; color: black !important; }
-      .trackCell .trkVol, .trackCell .swatch, .trackCell .fileLabel { display: none !important; }
+      .trackCell .drumMuteBtn, .trackCell .swatch, .trackCell .fileLabel { display: none !important; }
       .trackCell .trackLeft, .trackCell .trackText { background: transparent !important; }
       
       /* Print header */
@@ -905,9 +913,8 @@
           <div style="color:var(--muted);text-align:center;padding:20px;font-size:13px;">Set server URL and click Refresh</div>
         </div>
         <div style="margin-top:12px;display:flex;gap:8px;">
-          <button id="hubPlayAllBtn" style="flex:1;padding:10px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">▶ Play All</button>
-          <button id="hubStopBtn" style="padding:10px 16px;background:#f59e0b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;">Stop</button>
-          <button id="hubClearAllBtn" style="padding:10px 16px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;"></button>
+          <button id="hubStopBtn" style="flex:1;padding:10px 16px;background:#f59e0b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;">Stop</button>
+          <button id="hubClearAllBtn" style="padding:10px 16px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;">✕</button>
         </div>
       </div>
       
@@ -1311,16 +1318,15 @@
       // Capture current pattern state as "MIDI" data
       var patternData = {
         drums: tracks.map(function(tr){
-          // Read volume directly from UI slider if available
-          var drumVol = tr.vol;
-          if(tr._ui && tr._ui.volEl){
-            var sliderVal = parseFloat(tr._ui.volEl.value);
-            if(isFinite(sliderVal)) drumVol = sliderVal;
+          // Read muted state from UI button if available
+          var drumMuted = !!tr.muted;
+          if(tr._ui && tr._ui.muteEl){
+            drumMuted = tr._ui.muteEl.classList.contains("muted");
           }
           return {
             key: tr.key,
             pattern: tr.pattern.slice(),
-            vol: drumVol
+            muted: drumMuted
           };
         }),
         bass: {
@@ -1548,14 +1554,16 @@
       if(pattern.drums){
         for(var i = 0; i < pattern.drums.length; i++){
           var drumTrack = pattern.drums[i];
+          // Skip if muted
+          if(drumTrack.muted) continue;
+          
           if(drumTrack.pattern && drumTrack.pattern[drumStep]){
             var tr = tracks.find(function(t){ return t.key === drumTrack.key; });
             if(tr && tr.buffer){
               if(drumTrack.key === "kick") triggerSidechain(time);
               
               var g = ensureTrackGain(drumTrack.key);
-              var vol = (drumTrack.vol !== undefined && drumTrack.vol !== null) ? drumTrack.vol : 0.8;
-              setTrackGain(drumTrack.key, vol, true);
+              setTrackGain(drumTrack.key, tr.vol || 0.8, true);
               
               if(tr.isSampler){
                 if(drumTrack.key === "sample1") playSampleNow(1, time);
@@ -1719,7 +1727,6 @@
     const hubRefreshBtn = document.getElementById("hubRefreshBtn");
     const hubProjectList = document.getElementById("hubProjectList");
     const hubCount = document.getElementById("hubCount");
-    const hubPlayAllBtn = document.getElementById("hubPlayAllBtn");
     const hubStopBtn = document.getElementById("hubStopBtn");
     const hubClearAllBtn = document.getElementById("hubClearAllBtn");
     const closeHubBtn = document.getElementById("closeHubBtn");
@@ -1757,7 +1764,7 @@
           for(var i = 0; i < 16; i++) if(tr.pattern[i]) bits |= (1 << i);
           return bits.toString(16).padStart(4, '0');
         }).join(''),
-        dv: tracks.map(function(tr){ return Math.round(tr.vol * 100) / 100; }),
+        dm: tracks.map(function(tr){ return tr.muted ? 1 : 0; }),
         ba: bassState.steps.map(function(s){ return s.note ? s.note[0] + encOct(s.oct) : '--'; }).join(''),
         le: leadState.steps.map(function(s){ return s.note ? s.note[0] + encOct(s.oct) : '--'; }).join(''),
         p: [
@@ -1799,8 +1806,8 @@
         drumPatterns.push(pattern);
       }
       
-      // Drum volumes
-      const drumVols = d.dv || tracks.map(t => t.vol);
+      // Drum mutes
+      const drumMutes = d.dm || new Array(8).fill(0);
       
       // Decode octave (stored as 0-3, original is -1 to 2)
       function decOct(str){ return (parseInt(str) || 0) - 1; }
@@ -1868,7 +1875,7 @@
         drums: tracks.map((tr, i) => ({
           key: tr.key,
           pattern: drumPatterns[i] || new Array(16).fill(false),
-          vol: drumVols[i] !== undefined ? drumVols[i] : tr.vol
+          muted: drumMutes[i] ? true : false
         })),
         bass: { steps: bassSteps },
         lead: { steps: leadSteps },
@@ -1936,9 +1943,8 @@
             for(var i = 0; i < 16; i++) if(tr.pattern && tr.pattern[i]) bits |= (1 << i);
             return bits.toString(16).padStart(4, '0');
           }).join('') : '',
-          dv: slot.drums ? slot.drums.map(function(tr){ 
-            var v = (tr.vol !== undefined && tr.vol !== null) ? tr.vol : 0.8;
-            return Math.round(v * 100) / 100; 
+          dm: slot.drums ? slot.drums.map(function(tr){ 
+            return tr.muted ? 1 : 0;
           }) : [],
           ba: slot.bass && slot.bass.steps ? slot.bass.steps.map(function(s){ return s.note ? s.note[0] + encOct(s.oct) : '--'; }).join('') : '',
           le: slot.lead && slot.lead.steps ? slot.lead.steps.map(function(s){ return s.note ? s.note[0] + encOct(s.oct) : '--'; }).join('') : '',
@@ -2183,15 +2189,15 @@
       const m = (data.params && data.params.mixer) || {};
       const mt = (data.params && data.params.mutes) || {};
       
-      // Update individual drum volume sliders and values
+      // Update individual drum mute buttons
       if(data.drums && Array.isArray(data.drums)){
         for(var i = 0; i < data.drums.length; i++){
           var drumData = data.drums[i];
           var tr = tracksByKey.get(drumData.key);
-          if(tr && drumData.vol !== undefined){
-            tr.vol = drumData.vol;
-            if(tr._ui && tr._ui.volEl){
-              tr._ui.volEl.value = String(drumData.vol);
+          if(tr){
+            tr.muted = !!drumData.muted;
+            if(tr._ui && tr._ui.muteEl){
+              tr._ui.muteEl.classList.toggle("muted", tr.muted);
             }
           }
         }
@@ -2297,19 +2303,6 @@
       stopLoopPlayback();
       hideStudentName();
       setStatus("Stopped");
-    });
-    
-    // Play all projects in sequence
-    hubPlayAllBtn.addEventListener("click", async () => {
-      if(hubProjects.length === 0){
-        alert("No submissions to play!");
-        return;
-      }
-      
-      hubPlaying = true;
-      hubPlayIndex = 0;
-      hubModal.style.display = "none";
-      playNextHubProject();
     });
     
     async function playNextHubProject(){
@@ -3010,31 +3003,22 @@
 
         trackCell.appendChild(left);
 
-        const volWrap = document.createElement("div");
-        volWrap.className = "trkVol";
-        const vol = document.createElement("input");
-        vol.type="range"; vol.min="0"; vol.max="1"; vol.step="0.01";
-        vol.value = String(clamp(tr.vol ?? 0.85, 0, 1));
-
-        let pendingVol = null;
-        let volRAF = 0;
-        const commitVol = () => {
-          volRAF = 0;
-          if(pendingVol == null) return;
-          tr.vol = pendingVol;
-          if(ctx) setTrackGain(tr.key, tr.vol, false);
-          pendingVol = null;
-        };
-        const onVolInput = () => {
-          pendingVol = clamp(parseFloat(vol.value||"0.85"), 0, 1);
-          if(!volRAF) volRAF = requestAnimationFrame(commitVol);
+        // Mute button for this drum track
+        const muteBtn = document.createElement("button");
+        muteBtn.type = "button";
+        muteBtn.className = "drumMuteBtn";
+        muteBtn.textContent = "M";
+        muteBtn.title = "Mute " + tr.name;
+        if(tr.muted) muteBtn.classList.add("muted");
+        
+        muteBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          tr.muted = !tr.muted;
+          muteBtn.classList.toggle("muted", tr.muted);
           scheduleSave();
-        };
-        vol.addEventListener("input", onVolInput, {passive:true});
-        vol.addEventListener("change", onVolInput, {passive:true});
-        volWrap.appendChild(vol);
+        });
 
-        trackCell.appendChild(volWrap);
+        trackCell.appendChild(muteBtn);
         row.appendChild(trackCell);
 
         const refs = new Array(16);
@@ -3075,7 +3059,7 @@
         cellRefsByTrack.set(tr.key, refs);
         gridEl.appendChild(row);
 
-        tr._ui = { fileEl: file, nameEl: name, volEl: vol };
+        tr._ui = { fileEl: file, nameEl: name, muteEl: muteBtn };
       }
     }
 
@@ -3083,7 +3067,7 @@
       for(const tr of tracks){
         if(tr._ui?.fileEl) tr._ui.fileEl.textContent = tr.fileLabel;
         if(tr._ui?.nameEl) tr._ui.nameEl.textContent = tr.name;
-        if(tr._ui?.volEl) tr._ui.volEl.value = String(clamp(tr.vol ?? 0.85, 0, 1));
+        if(tr._ui?.muteEl) tr._ui.muteEl.classList.toggle("muted", !!tr.muted);
       }
     }
 
@@ -4098,6 +4082,7 @@
       }
 
       for(const tr of tracks){
+        if(tr.muted) continue; // Skip if muted
         if(tr.pattern[stepIndex]){
           if(tr.key === "kick") triggerSidechain(time);
 
@@ -4293,7 +4278,7 @@
         tempo: tempo(),
         masterVol: +masterVolEl.value,
         sidechain: sideAmt(),
-        drum: tracks.map(t=>({ key:t.key, pattern:[...t.pattern], vol:+t.vol })),
+        drum: tracks.map(t=>({ key:t.key, pattern:[...t.pattern], muted:!!t.muted })),
         bassState,
         leadState,
         pianoState,
@@ -4305,7 +4290,8 @@
             lead: slot.lead,
             piano: slot.piano,
             params: slot.params,
-            tempo: slot.tempo
+            tempo: slot.tempo,
+            loopLength: slot.loopLength
           };
         }),
         params:{
@@ -4344,10 +4330,9 @@
             tr.pattern = savedTr.pattern.map(Boolean);
             for(let s=0;s<16;s++) toggleCellUI(tr.key, s, tr.pattern[s]);
           }
-          if(tr && typeof savedTr.vol === "number"){
-            tr.vol = clamp(savedTr.vol, 0, 1);
-            if(tr._ui?.volEl) tr._ui.volEl.value = String(tr.vol);
-            if(ctx){ ensureTrackGain(tr.key); setTrackGain(tr.key, tr.vol, true); }
+          if(tr){
+            tr.muted = !!savedTr.muted;
+            if(tr._ui?.muteEl) tr._ui.muteEl.classList.toggle("muted", tr.muted);
           }
         }
       }
