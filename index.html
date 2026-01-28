@@ -1376,33 +1376,40 @@
           }
         },
         tempo: tempo(),
-        loopLength: hasBars34Notes(bassState.steps, leadState.steps, pianoState.steps) ? 64 : 32
+        loopLength: 64 // Always record 4 bars
       };
       
       loopSlots[slot] = patternData;
       
-      var totalBars = patternData.loopLength === 32 ? 2 : 4;
       updateLoopUI();
-      setStatus("Recording Loop " + (slot + 1) + "... (Bar 1/" + totalBars + ")");
+      setStatus("Recording Loop " + (slot + 1) + "... (Bar 1/4)");
     }
 
     function incrementBarCount(){
       if(recordingSlot < 0) return false;
-      var pattern = loopSlots[recordingSlot];
-      var totalBars = pattern && pattern.loopLength === 32 ? 2 : 4;
       recordingBarCount++;
       updateLoopUI();
-      setStatus(`Recording Loop ${recordingSlot + 1}... (Bar ${recordingBarCount}/${totalBars})`);
-      return recordingBarCount >= totalBars;
+      setStatus(`Recording Loop ${recordingSlot + 1}... (Bar ${recordingBarCount}/4)`);
+      return recordingBarCount >= 4;
     }
 
     function stopLoopRecording(){
       if(recordingSlot < 0) return;
       
       const slot = recordingSlot;
-      var pattern = loopSlots[slot];
-      var totalBars = pattern && pattern.loopLength === 32 ? 2 : 4;
-      setStatus("Loop " + (slot + 1) + " recorded! (" + totalBars + " bars)");
+      const pattern = loopSlots[slot];
+      
+      // Check if bars 3-4 have notes and set loopLength for playback
+      if(pattern){
+        const hasNotes34 = hasBars34Notes(
+          pattern.bass ? pattern.bass.steps : [],
+          pattern.lead ? pattern.lead.steps : [],
+          pattern.piano ? pattern.piano.steps : []
+        );
+        pattern.loopLength = hasNotes34 ? 64 : 32;
+      }
+      
+      setStatus("Loop " + (slot + 1) + " recorded!");
       
       recordingSlot = -1;
       recordingBarCount = 0;
