@@ -1248,7 +1248,12 @@
       for(let i = 32; i < 64; i++){
         if(bassSteps[i] && bassSteps[i].note) return true;
         if(leadSteps[i] && leadSteps[i].note) return true;
-        if(pianoSteps[i] && pianoSteps[i].length > 0) return true;
+        // Piano steps can be arrays or objects with notes property
+        if(pianoSteps[i]){
+          if(Array.isArray(pianoSteps[i]) && pianoSteps[i].length > 0) return true;
+          if(pianoSteps[i].notes && pianoSteps[i].notes.length > 0) return true;
+          if(pianoSteps[i].note) return true;
+        }
       }
       return false;
     }
@@ -1614,8 +1619,10 @@
       var drumStep = stepIndex % 16;
       
       // For melodic instruments: if loopLength is 32, wrap steps 32-63 back to 0-31
+      // This makes bars 1-2 repeat twice for a total of 4 bars
       var melodicStep = stepIndex;
-      if(pattern.loopLength === 32 && stepIndex >= 32){
+      var patternLoopLen = parseInt(pattern.loopLength) || 64;
+      if(patternLoopLen === 32 && stepIndex >= 32){
         melodicStep = stepIndex - 32; // Steps 32-63 become 0-31
       }
       
@@ -1956,7 +1963,7 @@
           mixer: { dV: m[0], bV: m[1], lV: m[2], pV: m[3] || 0.7, dF: m[4] || 1, bF: m[5] || 1, lF: m[6] || 1, pF: m[7] || 1 },
           mutes: { drum: mt[0], bass: mt[1], lead: mt[2], piano: mt[3] || 0 }
         },
-        loopLength: d.ll || 64
+        loopLength: parseInt(d.ll) || 64
       };
     }
     
@@ -2046,7 +2053,7 @@
             slot.params.mutes.lead ? 1 : 0,
             slot.params.mutes.piano ? 1 : 0
           ] : [0,0,0,0],
-          ll: slot.loopLength || 64
+          ll: parseInt(slot.loopLength) || 64
         };
       }
       
