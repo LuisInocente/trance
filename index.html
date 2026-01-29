@@ -2212,8 +2212,9 @@
         var statusMsg = null;
         var switchTime = null;
         var nextPattern = null;
-        var loopLength = currentPattern && currentPattern.loopLength === 32 ? 32 : 64;
-        var totalBars = loopLength === 32 ? 2 : 4;
+        // Always play 64 steps (4 bars), playLoopStep handles 2-bar repeating
+        var loopLength = 64;
+        var totalBars = 4;
         
         while(nextTime < ctx.currentTime + 0.04){
           playLoopStep(currentPattern, step, nextTime);
@@ -2237,8 +2238,6 @@
             
             switchTime = nextTime;
             currentPattern = projectSlots[currentSlotIndex];
-            loopLength = currentPattern && currentPattern.loopLength === 32 ? 32 : 64;
-            totalBars = loopLength === 32 ? 2 : 4;
             nextPattern = currentPattern;
             loopSlots[0] = currentPattern;
             statusMsg = project.name + " - Loop " + (currentSlotIndex + 1) + "/" + projectSlots.length;
@@ -2495,7 +2494,7 @@
         hubTimer = setTimeout(scheduleAllSlots, 8);
       }
       
-      setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop 1/" + totalLoops + " [ll:" + (currentPattern.loopLength || "?") + "]");
+      setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop 1/" + totalLoops);
       scheduleAllSlots();
     }
     
@@ -2612,7 +2611,7 @@
         hubTimer = setTimeout(scheduleAllSlots, 8);
       }
       
-      setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop 1/" + totalLoops + " [ll:" + (currentPattern.loopLength || "?") + "]");
+      setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop 1/" + totalLoops);
       scheduleAllSlots();
     }
     
