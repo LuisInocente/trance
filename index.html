@@ -1259,7 +1259,6 @@
         loopStatuses[i].classList.remove("armed", "recording", "ready", "playing", "pending");
         
         const slot = loopSlots[i];
-        const totalBars = slot && slot.loopLength === 32 ? 2 : 4;
         
         if(i === armedSlot){
           btn.classList.add("armed");
@@ -1271,18 +1270,16 @@
           loopStatuses[i].classList.add("recording");
         } else if(i === pendingPlaySlot){
           btn.classList.add("pending");
-          const playingPattern = loopSlots[playingSlot];
-          const playingTotalBars = playingPattern && playingPattern.loopLength === 32 ? 2 : 4;
-          const barsLeft = playingTotalBars + 1 - loopBarsPlayed;
+          const barsLeft = 5 - loopBarsPlayed;
           loopStatuses[i].textContent = barsLeft > 0 ? `In ${barsLeft}` : "Next";
           loopStatuses[i].classList.add("pending");
         } else if(i === playingSlot){
           btn.classList.add("playing");
-          loopStatuses[i].textContent = `${loopBarsPlayed}/${totalBars}`;
+          loopStatuses[i].textContent = `${loopBarsPlayed}/4`;
           loopStatuses[i].classList.add("playing");
         } else if(slot){
           btn.classList.add("ready");
-          loopStatuses[i].textContent = totalBars === 2 ? "2 bar" : "Ready";
+          loopStatuses[i].textContent = slot.loopLength === 32 ? "2×2" : "Ready";
           loopStatuses[i].classList.add("ready");
         } else {
           loopStatuses[i].textContent = "Empty";
@@ -1463,7 +1460,7 @@
           }
         },
         tempo: tempo(),
-        loopLength: 64 // Always play 4 bars
+        loopLength: hasBars34Notes(bassState.steps, leadState.steps, pianoState.steps) ? 64 : 32
       };
       
       loopSlots[slot] = patternData;
@@ -1545,8 +1542,9 @@
         var switchTime = null;
         var newPattern = null;
         var currentPattern = loopSlots[playingSlot];
-        var loopLength = currentPattern && currentPattern.loopLength === 32 ? 32 : 64;
-        var totalBars = loopLength === 32 ? 2 : 4;
+        // Always play 64 steps (4 bars), playLoopStep handles 2-bar looping internally
+        var loopLength = 64;
+        var totalBars = 4;
         
         while(loopNextTime < ctx.currentTime + lookAhead){
           if(!currentPattern) return;
@@ -1575,7 +1573,6 @@
               playingSlot = pendingPlaySlot;
               pendingPlaySlot = -1;
               currentPattern = loopSlots[playingSlot];
-              loopLength = currentPattern && currentPattern.loopLength === 32 ? 32 : 64;
               newPattern = currentPattern;
               newStatusMsg = "Playing Loop " + (playingSlot + 1);
             }
@@ -1616,6 +1613,12 @@
       // Drums are 16-step patterns that repeat
       var drumStep = stepIndex % 16;
       
+      // For melodic instruments: if loopLength is 32, wrap steps 32-63 back to 0-31
+      var melodicStep = stepIndex;
+      if(pattern.loopLength === 32 && stepIndex >= 32){
+        melodicStep = stepIndex - 32; // Steps 32-63 become 0-31
+      }
+      
       // Play drums
       if(pattern.drums){
         for(var i = 0; i < pattern.drums.length; i++){
@@ -1652,9 +1655,9 @@
         return isFinite(n) ? n : def;
       }
       
-      // Play bass - use octave directly (no +1)
-      if(pattern.bass && pattern.bass.steps && pattern.bass.steps[stepIndex]){
-        var bassData = pattern.bass.steps[stepIndex];
+      // Play bass - use melodicStep for 2-bar looping
+      if(pattern.bass && pattern.bass.steps && pattern.bass.steps[melodicStep]){
+        var bassData = pattern.bass.steps[melodicStep];
         if(bassData.note){
           var bassFreq = hzForNote(bassData.note, safeNum(bassData.oct, 0));
           if(isFinite(bassFreq) && bassFreq > 0){
@@ -1672,9 +1675,9 @@
         }
       }
       
-      // Play lead - add +1 octave (matches original scheduleLead)
-      if(pattern.lead && pattern.lead.steps && pattern.lead.steps[stepIndex]){
-        var leadData = pattern.lead.steps[stepIndex];
+      // Play lead - use melodicStep for 2-bar looping
+      if(pattern.lead && pattern.lead.steps && pattern.lead.steps[melodicStep]){
+        var leadData = pattern.lead.steps[melodicStep];
         if(leadData.note){
           var leadFreq = hzForNote(leadData.note, safeNum(leadData.oct, 0) + 1);
           if(isFinite(leadFreq) && leadFreq > 0){
@@ -1692,15 +1695,15 @@
         }
       }
       
-      // Play piano - supports chords (each step is array of {note, oct})
+      // Play piano - use melodicStep for 2-bar looping, supports chords (each step is array of {note, oct})
       var pp = (pattern.params && pattern.params.piano) || {};
-      if(pattern.piano && pattern.piano.steps && pattern.piano.steps[stepIndex]){
-        var pianoStep = pattern.piano.steps[stepIndex];
+      if(pattern.piano && pattern.piano.steps && pattern.piano.steps[melodicStep]){
+        var pianoStepData = pattern.piano.steps[melodicStep];
         // Handle both formats: direct array or object with notes
-        var pianoNotes = Array.isArray(pianoStep) ? pianoStep : (pianoStep.notes || []);
+        var pianoNotes = Array.isArray(pianoStepData) ? pianoStepData : (pianoStepData.notes || []);
         // Handle old single-note format
-        if(pianoNotes.length === 0 && pianoStep.note){
-          pianoNotes = [{ note: pianoStep.note, oct: pianoStep.oct || 0 }];
+        if(pianoNotes.length === 0 && pianoStepData.note){
+          pianoNotes = [{ note: pianoStepData.note, oct: pianoStepData.oct || 0 }];
         }
         if(pianoNotes.length > 0){
           pianoSynth.setReverb(safeNum(pp.reverb, 0.3));
@@ -2433,8 +2436,9 @@
         var switchToNextProject = false;
         var switchTime = null;
         var nextPattern = null;
-        var loopLength = currentPattern && currentPattern.loopLength === 32 ? 32 : 64;
-        var totalBars = loopLength === 32 ? 2 : 4;
+        // Always play 64 steps (4 bars), playLoopStep handles 2-bar repeating
+        var loopLength = 64;
+        var totalBars = 4;
         
         while(nextTime < ctx.currentTime + 0.04){
           playLoopStep(currentPattern, step, nextTime);
@@ -2459,8 +2463,6 @@
             
             switchTime = nextTime;
             currentPattern = projectSlots[currentSlotIndex];
-            loopLength = currentPattern && currentPattern.loopLength === 32 ? 32 : 64;
-            totalBars = loopLength === 32 ? 2 : 4;
             nextPattern = currentPattern;
             loopSlots[0] = currentPattern;
             statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops;
@@ -2551,8 +2553,9 @@
         var switchToNextProject = false;
         var switchTime = null;
         var nextPattern = null;
-        var loopLength = currentPattern && currentPattern.loopLength === 32 ? 32 : 64;
-        var totalBars = loopLength === 32 ? 2 : 4;
+        // Always play 64 steps (4 bars), playLoopStep handles 2-bar repeating
+        var loopLength = 64;
+        var totalBars = 4;
         
         while(nextTime < ctx.currentTime + 0.04){
           playLoopStep(currentPattern, step, nextTime);
@@ -2577,8 +2580,6 @@
             
             switchTime = nextTime;
             currentPattern = projectSlots[currentSlotIndex];
-            loopLength = currentPattern && currentPattern.loopLength === 32 ? 32 : 64;
-            totalBars = loopLength === 32 ? 2 : 4;
             nextPattern = currentPattern;
             loopSlots[0] = currentPattern;
             statusMsg = project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop " + (currentSlotIndex + 1) + "/" + totalLoops;
