@@ -1245,17 +1245,32 @@
 
     // Check if bars 3-4 (steps 32-63) have any notes
     function hasBars34Notes(bassSteps, leadSteps, pianoSteps){
+      var foundNotes = [];
       for(let i = 32; i < 64; i++){
-        if(bassSteps[i] && bassSteps[i].note) return true;
-        if(leadSteps[i] && leadSteps[i].note) return true;
+        if(bassSteps[i] && bassSteps[i].note){
+          foundNotes.push({type:'bass', step:i, note:bassSteps[i].note});
+        }
+        if(leadSteps[i] && leadSteps[i].note){
+          foundNotes.push({type:'lead', step:i, note:leadSteps[i].note});
+        }
         // Piano steps can be arrays or objects with notes property
         if(pianoSteps[i]){
-          if(Array.isArray(pianoSteps[i]) && pianoSteps[i].length > 0) return true;
-          if(pianoSteps[i].notes && pianoSteps[i].notes.length > 0) return true;
-          if(pianoSteps[i].note) return true;
+          if(Array.isArray(pianoSteps[i]) && pianoSteps[i].length > 0){
+            foundNotes.push({type:'piano', step:i, notes:pianoSteps[i].length});
+          }
+          if(pianoSteps[i].notes && pianoSteps[i].notes.length > 0){
+            foundNotes.push({type:'piano-obj', step:i, notes:pianoSteps[i].notes.length});
+          }
+          if(pianoSteps[i].note){
+            foundNotes.push({type:'piano-single', step:i, note:pianoSteps[i].note});
+          }
         }
       }
-      return false;
+      console.log("hasBars34Notes found in bars 3-4:", foundNotes.length > 0 ? foundNotes : "NONE");
+      if(foundNotes.length === 0){
+        alert("No notes in bars 3-4 - will be 2-bar loop");
+      }
+      return foundNotes.length > 0;
     }
 
     function updateLoopUI(){
@@ -1468,6 +1483,12 @@
         loopLength: hasBars34Notes(bassState.steps, leadState.steps, pianoState.steps) ? 64 : 32
       };
       
+      // Debug: log loopLength being set
+      console.log("stopLoopRecording slot:", slot, "loopLength:", patternData.loopLength);
+      if(patternData.loopLength === 32){
+        alert("Recording set to 2-bar loop!");
+      }
+      
       loopSlots[slot] = patternData;
       
       setStatus("Loop " + (slot + 1) + " recorded!");
@@ -1621,9 +1642,16 @@
       // For melodic instruments: if loopLength is 32, wrap steps 32-63 back to 0-31
       // This makes bars 1-2 repeat twice for a total of 4 bars
       var melodicStep = stepIndex;
-      var patternLoopLen = parseInt(pattern.loopLength) || 64;
+      var patternLoopLen = pattern.loopLength;
+      
+      // Debug: log loopLength on first step
+      if(stepIndex === 0){
+        console.log("playLoopStep loopLength:", patternLoopLen, "type:", typeof patternLoopLen);
+      }
+      
       if(patternLoopLen === 32 && stepIndex >= 32){
         melodicStep = stepIndex - 32; // Steps 32-63 become 0-31
+        if(stepIndex === 32) console.log("Wrapping to bar 1-2, melodicStep:", melodicStep);
       }
       
       // Play drums
@@ -1946,6 +1974,12 @@
       const m = d.m || [0.8,0.75,0.7,0.7,1,1,1,1];
       const mt = d.mt || [0,0,0,0];
       
+      // Debug: log ll field
+      console.log("parseProjectData d.ll:", d.ll, "parsed:", parseInt(d.ll) || 64);
+      if(d.ll === 32 || parseInt(d.ll) === 32){
+        alert("Found 2-bar loop! ll=" + d.ll);
+      }
+      
       return {
         tempo: d.t || 120,
         drums: tracks.map((tr, i) => ({
@@ -2058,6 +2092,11 @@
       }
       
       var slots = loopSlots.map(slotToCompact);
+      
+      // Debug: log what we're sending
+      console.log("Hub submit slots:", slots.map(s => s ? {ll: s.ll, hasData: !!s.dr} : null));
+      var llValues = slots.filter(s => s).map(s => s.ll);
+      alert("Submitting to hub. ll values: " + llValues.join(", "));
       
       try {
         const res = await fetch(url, {
