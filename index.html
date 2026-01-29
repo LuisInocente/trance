@@ -78,16 +78,64 @@
     }
 
     .headerTop{
-      display:grid;
-      grid-template-columns: 1fr auto 1fr;
+      display:flex;
       gap:10px;
       align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
     }
 
-    .topLeft,.topMid,.topRight{ display:flex; align-items:center; gap:10px; }
+    .topLeft,.topMid,.topMidRight,.topRight{ display:flex; align-items:center; gap:8px; }
     .topLeft{ justify-content:flex-start; }
     .topMid{ justify-content:center; }
+    .topMidRight{ justify-content:center; }
     .topRight{ justify-content:flex-end; flex-wrap:wrap; }
+
+    .mixerCompact{
+      display:flex;
+      gap:8px;
+      padding:6px 10px;
+      background:var(--bg);
+      border-radius:8px;
+      border:1px solid var(--border);
+    }
+    .mixChan{
+      display:flex;
+      align-items:center;
+      gap:5px;
+    }
+    .mixLabel{
+      font-size:12px;
+      font-weight:900;
+      color:var(--text);
+      min-width:fit-content;
+    }
+    .mixLabelSmall{
+      font-size:10px;
+      font-weight:900;
+      color:var(--muted);
+    }
+    .mixChan input[type="range"]{
+      width:80px;
+      height:20px;
+    }
+    .mixMute{
+      width:28px;
+      height:28px;
+      border-radius:6px;
+      border:1px solid var(--border);
+      background:var(--card);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      cursor:pointer;
+      padding:0;
+    }
+    .mixMute.active{
+      background:#dc2626;
+      border-color:#dc2626;
+      color:#fff;
+    }
 
     .loopSlots{
       display:flex;
@@ -395,7 +443,7 @@
     }
     .headerRow{
       display:grid;
-      grid-template-columns: 200px repeat(16, 1fr);
+      grid-template-columns: 280px repeat(16, 1fr);
       border-bottom:1px solid var(--gridBorder);
       background:var(--card);
       flex:0 0 auto;
@@ -420,28 +468,29 @@
       touch-action:manipulation;
     }
 
-    .row{ display:grid; grid-template-columns: 200px repeat(16,1fr); gap:1px; }
+    .row{ display:grid; grid-template-columns: 280px repeat(16,1fr); gap:1px; }
     .row+.row{ border-top:1px solid var(--gridBorder); }
 
     .trackCell{
       display:flex;
       align-items:center;
-      justify-content:space-between;
-      gap:8px;
-      padding:4px 8px;
+      justify-content:flex-start;
+      gap:4px;
+      padding:3px 6px;
       border-right:1px solid var(--gridBorder);
       background:var(--card);
       min-width:0;
+      overflow:visible;
     }
     .trackLeft{
       display:flex;
       align-items:center;
-      gap:6px;
+      gap:3px;
       min-width:0;
-      flex:1 1 auto;
+      flex:0 0 auto;
     }
     .swatch{
-      width:10px; height:10px;
+      width:6px; height:6px;
       border-radius:999px;
       border:1px solid rgba(255,255,255,.15);
       flex:0 0 auto;
@@ -451,40 +500,77 @@
       flex-direction:column;
       min-width:0;
       gap:1px;
-      flex:1 1 auto;
+      flex:0 0 auto;
     }
     .trackName{
       font-weight:1000;
-      font-size:11px;
+      font-size:9px;
       color:var(--text);
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
-      max-width:120px;
+      max-width:50px;
       line-height:1.1;
     }
     .fileLabel{
-      font-size:9px;
+      font-size:7px;
       color:var(--muted);
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
-      max-width:120px;
+      max-width:50px;
+    }
+
+    /* Sample controls inline */
+    .sampleControls{
+      display:flex;
+      align-items:center;
+      gap:3px;
+      flex:1 1 auto;
+      min-width:0;
+      overflow:visible;
+    }
+    .sampleControls .recBtn{
+      width:24px; height:24px;
+      padding:0;
+      flex:0 0 auto;
+    }
+    .sampleControls .recBtn .recDot{
+      width:8px; height:8px;
+    }
+    .sampleControls .smallBtn{
+      height:24px;
+      padding:0 5px;
+      font-size:11px;
+      min-width:24px;
+      flex:0 0 auto;
+    }
+    .sampleControls input[type="range"]{
+      width:32px;
+      height:16px;
+      flex:0 0 auto;
+    }
+    .sampleControls .sliderLabel{
+      font-size:9px;
+      color:var(--muted);
+      font-weight:900;
+      flex:0 0 auto;
     }
 
     /* per-drum mute button */
     .drumMuteBtn{
       flex:0 0 auto;
-      width:24px;
-      height:24px;
-      border-radius:6px;
+      margin-left:auto;
+      width:20px;
+      height:20px;
+      border-radius:4px;
       border:1px solid var(--border);
       background:var(--card);
       cursor:pointer;
       display:flex;
       align-items:center;
       justify-content:center;
-      font-size:12px;
+      font-size:10px;
       color:var(--text);
       transition: all 0.1s ease;
     }
@@ -498,7 +584,7 @@
     }
 
     .cell{
-      height:28px;
+      height:24px;
       border:1px solid var(--gridBorder);
       border-radius:4px;
       display:flex; align-items:center; justify-content:center;
@@ -847,11 +933,46 @@
           <span>Vol</span>
           <input id="masterVol" type="range" min="0" max="1" value="0.90" step="0.01">
         </div>
+        <div class="mixerCompact">
+          <div class="mixChan">
+            <span class="mixLabel">Drums</span>
+            <input id="mDrumVol" type="range" min="0" max="1" step="0.01" value="0.22" title="Drum Volume">
+            <span class="mixLabelSmall">LP</span>
+            <input id="mDrumLPF" type="range" min="0" max="1" step="0.01" value="1.00" title="Drum LPF">
+            <button id="mDrumMute" class="mixMute">M</button>
+          </div>
+          <div class="mixChan">
+            <span class="mixLabel">Bass</span>
+            <input id="mBassVol" type="range" min="0" max="1" step="0.01" value="0.22" title="Bass Volume">
+            <span class="mixLabelSmall">LP</span>
+            <input id="mBassLPF" type="range" min="0" max="1" step="0.01" value="1.00" title="Bass LPF">
+            <button id="mBassMute" class="mixMute">M</button>
+          </div>
+        </div>
       </div>
 
       <div class="topMid">
         <button id="masterPlay" class="primary">▶ Play</button>
         <button id="masterStop" disabled>■ Stop</button>
+      </div>
+
+      <div class="topMidRight">
+        <div class="mixerCompact">
+          <div class="mixChan">
+            <span class="mixLabel">Piano</span>
+            <input id="mPianoVol" type="range" min="0" max="1" step="0.01" value="0.22" title="Piano Volume">
+            <span class="mixLabelSmall">LP</span>
+            <input id="mPianoLPF" type="range" min="0" max="1" step="0.01" value="1.00" title="Piano LPF">
+            <button id="mPianoMute" class="mixMute">M</button>
+          </div>
+          <div class="mixChan">
+            <span class="mixLabel">Lead</span>
+            <input id="mLeadVol" type="range" min="0" max="1" step="0.01" value="0.26" title="Lead Volume">
+            <span class="mixLabelSmall">LP</span>
+            <input id="mLeadLPF" type="range" min="0" max="1" step="0.01" value="1.00" title="Lead LPF">
+            <button id="mLeadMute" class="mixMute">M</button>
+          </div>
+        </div>
       </div>
 
       <div class="topRight">
@@ -936,52 +1057,6 @@
       </div>
 
       <div class="body">
-        <div class="samplerBar">
-          <strong style="font-size:12px">Sample 1</strong>
-          <button id="s1RecBtn" class="recBtn" title="Record 2 seconds"><span class="recDot"></span></button>
-          <button id="s1PlayBtn" class="smallBtn" disabled>▶</button>
-          <button id="s1ClearBtn" class="smallBtn" disabled>✕</button>
-
-          <div class="samplerKnob">
-            <span style="font-weight:950;color:var(--text)">Mix</span>
-            <input id="s1Mix" type="range" min="0" max="1" step="0.01" value="0.18">
-          </div>
-          <div class="samplerKnob">
-            <span style="font-weight:950;color:var(--text)">FB</span>
-            <input id="s1Fb" type="range" min="0" max="0.75" step="0.01" value="0.22">
-          </div>
-          <div class="samplerKnob">
-            <span style="font-weight:950;color:var(--text)">Pitch</span>
-            <input id="s1Pitch" type="range" min="-12" max="12" step="1" value="0">
-            <strong id="s1PitchVal" style="color:var(--text);font-weight:950">+00</strong>
-          </div>
-
-          <span id="s1Status" class="samplerStatus">No sample</span>
-        </div>
-
-        <div class="samplerBar">
-          <strong style="font-size:12px">Sample 2</strong>
-          <button id="s2RecBtn" class="recBtn" title="Record 2 seconds"><span class="recDot"></span></button>
-          <button id="s2PlayBtn" class="smallBtn" disabled>▶</button>
-          <button id="s2ClearBtn" class="smallBtn" disabled>✕</button>
-
-          <div class="samplerKnob">
-            <span style="font-weight:950;color:var(--text)">Mix</span>
-            <input id="s2Mix" type="range" min="0" max="1" step="0.01" value="0.18">
-          </div>
-          <div class="samplerKnob">
-            <span style="font-weight:950;color:var(--text)">FB</span>
-            <input id="s2Fb" type="range" min="0" max="0.75" step="0.01" value="0.22">
-          </div>
-          <div class="samplerKnob">
-            <span style="font-weight:950;color:var(--text)">Pitch</span>
-            <input id="s2Pitch" type="range" min="-12" max="12" step="1" value="0">
-            <strong id="s2PitchVal" style="color:var(--text);font-weight:950">+00</strong>
-          </div>
-
-          <span id="s2Status" class="samplerStatus">No sample</span>
-        </div>
-
         <div class="gridWrap">
           <div class="headerRow" id="headerRow"></div>
           <div id="grid"></div>
@@ -1075,91 +1150,6 @@
       </div>
     </div>
 
-    <!-- MIXER -->
-    <div class="card card-mixer">
-      <div class="cardHead">
-        <div class="title">Mixer</div>
-        <div></div>
-      </div>
-
-      <div class="body">
-        <div class="pill" style="justify-content:space-between;gap:12px;">
-          <span style="font-weight:950;color:var(--text)">Sidechain</span>
-          <input id="sidechainAmt" type="range" min="0" max="1" step="0.01" value="0.22" style="width:180px">
-          <strong id="sidechainVal">0.22</strong>
-        </div>
-
-        <div class="mixerGrid">
-          <div class="chan">
-            <div class="chanTop">
-              <div class="chanName">Drums</div>
-              <button id="mDrumMute" class="muteBtn">Mute</button>
-            </div>
-            <div class="faderWrap">
-              <div class="faderCol">
-                <div class="faderLabel">Vol</div>
-                <input id="mDrumVol" class="hfader" type="range" min="0" max="1" step="0.01" value="0.22">
-              </div>
-              <div class="faderCol">
-                <div class="faderLabel">LPF</div>
-                <input id="mDrumLPF" class="hfader" type="range" min="0" max="1" step="0.01" value="1.00">
-              </div>
-            </div>
-          </div>
-
-          <div class="chan">
-            <div class="chanTop">
-              <div class="chanName">Bass</div>
-              <button id="mBassMute" class="muteBtn">Mute</button>
-            </div>
-            <div class="faderWrap">
-              <div class="faderCol">
-                <div class="faderLabel">Vol</div>
-                <input id="mBassVol" class="hfader" type="range" min="0" max="1" step="0.01" value="0.22">
-              </div>
-              <div class="faderCol">
-                <div class="faderLabel">LPF</div>
-                <input id="mBassLPF" class="hfader" type="range" min="0" max="1" step="0.01" value="1.00">
-              </div>
-            </div>
-          </div>
-
-          <div class="chan">
-            <div class="chanTop">
-              <div class="chanName">Lead</div>
-              <button id="mLeadMute" class="muteBtn">Mute</button>
-            </div>
-            <div class="faderWrap">
-              <div class="faderCol">
-                <div class="faderLabel">Vol</div>
-                <input id="mLeadVol" class="hfader" type="range" min="0" max="1" step="0.01" value="0.26">
-              </div>
-              <div class="faderCol">
-                <div class="faderLabel">LPF</div>
-                <input id="mLeadLPF" class="hfader" type="range" min="0" max="1" step="0.01" value="1.00">
-              </div>
-            </div>
-          </div>
-
-          <div class="chan">
-            <div class="chanTop">
-              <div class="chanName">Piano</div>
-              <button id="mPianoMute" class="muteBtn">Mute</button>
-            </div>
-            <div class="faderWrap">
-              <div class="faderCol">
-                <div class="faderLabel">Vol</div>
-                <input id="mPianoVol" class="hfader" type="range" min="0" max="1" step="0.01" value="0.22">
-              </div>
-              <div class="faderCol">
-                <div class="faderLabel">LPF</div>
-                <input id="mPianoLPF" class="hfader" type="range" min="0" max="1" step="0.01" value="1.00">
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 
   <footer>
@@ -2296,14 +2286,10 @@
       mute.piano = !!mt.piano;
       
       // Update mute button UI
-      mDrumMuteBtn.classList.toggle("on", mute.drums);
-      mDrumMuteBtn.textContent = mute.drums ? "Muted" : "Mute";
-      mBassMuteBtn.classList.toggle("on", mute.bass);
-      mBassMuteBtn.textContent = mute.bass ? "Muted" : "Mute";
-      mLeadMuteBtn.classList.toggle("on", mute.lead);
-      mLeadMuteBtn.textContent = mute.lead ? "Muted" : "Mute";
-      mPianoMuteBtn.classList.toggle("on", mute.piano);
-      mPianoMuteBtn.textContent = mute.piano ? "Muted" : "Mute";
+      mDrumMuteBtn.classList.toggle("active", mute.drums);
+      mBassMuteBtn.classList.toggle("active", mute.bass);
+      mLeadMuteBtn.classList.toggle("active", mute.lead);
+      mPianoMuteBtn.classList.toggle("active", mute.piano);
       
       // Apply to audio nodes - schedule if time provided, otherwise instant
       if(ctx && drumGain && bassGain && leadGain && pianoGain){
@@ -2751,13 +2737,9 @@
     const mLeadMuteBtn = document.getElementById("mLeadMute");
     const mPianoMuteBtn = document.getElementById("mPianoMute");
 
-    const sidechainAmtEl = document.getElementById("sidechainAmt");
-    const sidechainValEl = document.getElementById("sidechainVal");
-    sidechainValEl.textContent = (+sidechainAmtEl.value).toFixed(2);
-
     const mute = { drums:false, bass:false, lead:false, piano:false };
 
-    function sideAmt(){ return clamp(parseFloat(sidechainAmtEl.value||0),0,1); }
+    function sideAmt(){ return 1.0; }
     function volFromFader(v){ return clamp(+v||0, 0, 1); }
     function cutoffFromLPFFader(v){
       v = clamp(+v||0, 0, 1);
@@ -2798,15 +2780,9 @@
 
       [mDrumVolEl,mBassVolEl,mLeadVolEl,mPianoVolEl,mDrumLPFEl,mBassLPFEl,mLeadLPFEl,mPianoLPFEl].forEach(el => bindInput(el, mixerUpdate));
 
-      bindInput(sidechainAmtEl, () => {
-        sidechainValEl.textContent = (+sidechainAmtEl.value).toFixed(2);
-        scheduleSave();
-      });
-
       function toggleMute(which, btn){
         mute[which] = !mute[which];
-        btn.classList.toggle("on", mute[which]);
-        btn.textContent = mute[which] ? "Muted" : "Mute";
+        btn.classList.toggle("active", mute[which]);
         if(ctx) applyMixerNow(false);
         scheduleSave();
       }
@@ -2882,23 +2858,9 @@
     const gridEl = document.getElementById("grid");
     const clearBtn = document.getElementById("clear");
 
-    const s1RecBtn   = document.getElementById("s1RecBtn");
-    const s1PlayBtn  = document.getElementById("s1PlayBtn");
-    const s1ClearBtn = document.getElementById("s1ClearBtn");
-    const s1Status   = document.getElementById("s1Status");
-    const s1MixEl    = document.getElementById("s1Mix");
-    const s1FbEl     = document.getElementById("s1Fb");
-    const s1PitchEl  = document.getElementById("s1Pitch");
-    const s1PitchVal = document.getElementById("s1PitchVal");
-
-    const s2RecBtn   = document.getElementById("s2RecBtn");
-    const s2PlayBtn  = document.getElementById("s2PlayBtn");
-    const s2ClearBtn = document.getElementById("s2ClearBtn");
-    const s2Status   = document.getElementById("s2Status");
-    const s2MixEl    = document.getElementById("s2Mix");
-    const s2FbEl     = document.getElementById("s2Fb");
-    const s2PitchEl  = document.getElementById("s2Pitch");
-    const s2PitchVal = document.getElementById("s2PitchVal");
+    // Sample controls - populated after buildGridOnce()
+    let s1RecBtn, s1PlayBtn, s1ClearBtn, s1MixEl, s1FbEl, s1PitchEl;
+    let s2RecBtn, s2PlayBtn, s2ClearBtn, s2MixEl, s2FbEl, s2PitchEl;
 
     function fmtPitch(v){
       v = Math.max(-12, Math.min(12, (v|0)));
@@ -3077,6 +3039,74 @@
 
         trackCell.appendChild(left);
 
+        // Add sample controls for sample tracks
+        if(tr.key === "sample1" || tr.key === "sample2"){
+          const which = tr.key === "sample1" ? 1 : 2;
+          const prefix = "s" + which;
+          
+          const controls = document.createElement("div");
+          controls.className = "sampleControls";
+          
+          // Record button
+          const recBtn = document.createElement("button");
+          recBtn.type = "button";
+          recBtn.className = "recBtn";
+          recBtn.id = prefix + "RecBtn";
+          recBtn.title = "Record 2 seconds";
+          recBtn.innerHTML = '<span class="recDot"></span>';
+          controls.appendChild(recBtn);
+          
+          // Play button
+          const playBtn = document.createElement("button");
+          playBtn.type = "button";
+          playBtn.className = "smallBtn";
+          playBtn.id = prefix + "PlayBtn";
+          playBtn.textContent = "▶";
+          playBtn.disabled = true;
+          controls.appendChild(playBtn);
+          
+          // Clear button
+          const clearBtn = document.createElement("button");
+          clearBtn.type = "button";
+          clearBtn.className = "smallBtn";
+          clearBtn.id = prefix + "ClearBtn";
+          clearBtn.textContent = "✕";
+          clearBtn.disabled = true;
+          controls.appendChild(clearBtn);
+          
+          // Mix slider
+          const mixLabel = document.createElement("span");
+          mixLabel.className = "sliderLabel";
+          mixLabel.textContent = "M";
+          controls.appendChild(mixLabel);
+          const mixSlider = document.createElement("input");
+          mixSlider.type = "range";
+          mixSlider.id = prefix + "Mix";
+          mixSlider.min = "0";
+          mixSlider.max = "1";
+          mixSlider.step = "0.01";
+          mixSlider.value = "0.18";
+          mixSlider.title = "Mix";
+          controls.appendChild(mixSlider);
+          
+          // Pitch slider
+          const pitchLabel = document.createElement("span");
+          pitchLabel.className = "sliderLabel";
+          pitchLabel.textContent = "P";
+          controls.appendChild(pitchLabel);
+          const pitchSlider = document.createElement("input");
+          pitchSlider.type = "range";
+          pitchSlider.id = prefix + "Pitch";
+          pitchSlider.min = "-12";
+          pitchSlider.max = "12";
+          pitchSlider.step = "1";
+          pitchSlider.value = "0";
+          pitchSlider.title = "Pitch";
+          controls.appendChild(pitchSlider);
+          
+          trackCell.appendChild(controls);
+        }
+
         // Mute button for this drum track
         const muteBtn = document.createElement("button");
         muteBtn.type = "button";
@@ -3168,7 +3198,7 @@
       const dry = ctx.createGain();
 
       delay.delayTime.setValueAtTime(quarterSec(), t);
-      fb.gain.setValueAtTime(clamp(parseFloat((which===1?s1FbEl.value:s2FbEl.value)||0),0,0.75), t);
+      fb.gain.setValueAtTime(clamp(parseFloat((which===1?(s1FbEl?.value||0.22):(s2FbEl?.value||0.22))||0),0,0.75), t);
 
       const mix = clamp(parseFloat((which===1?s1MixEl.value:s2MixEl.value)||0),0,1);
       dry.gain.setValueAtTime(1-mix, t);
@@ -3194,23 +3224,19 @@
       const is1 = which === 1;
       const playBtn = is1 ? s1PlayBtn : s2PlayBtn;
       const clrBtn  = is1 ? s1ClearBtn : s2ClearBtn;
-      const status  = is1 ? s1Status : s2Status;
       const tr      = is1 ? sample1Track : sample2Track;
 
-      playBtn.disabled = !has;
-      clrBtn.disabled  = !has;
+      if(playBtn) playBtn.disabled = !has;
+      if(clrBtn) clrBtn.disabled  = !has;
 
       if(!has){
-        status.textContent = "No sample";
         tr.fileLabel = "No sample";
       }else{
-        status.textContent = "Sample ready ";
         tr.fileLabel = "Recorded";
       }
       updateTrackLabels();
     }
-    setSamplerUI(1,false);
-    setSamplerUI(2,false);
+    // setSamplerUI is called after buildGridOnce in init
 
     let _rec=null, _chunks=[], _stream=null, _recWhich=1;
 
@@ -3298,10 +3324,12 @@
 
       _recWhich = which;
       var recBtn = (which===1 ? s1RecBtn : s2RecBtn);
-      recBtn.classList.add("recording");
-      (which===1 ? s1Status : s2Status).textContent = "Recording…";
-      (which===1 ? s1PlayBtn : s2PlayBtn).disabled = true;
-      (which===1 ? s1ClearBtn : s2ClearBtn).disabled = true;
+      if(recBtn) recBtn.classList.add("recording");
+      var tr = (which===1) ? sample1Track : sample2Track;
+      tr.fileLabel = "Recording…";
+      updateTrackLabels();
+      if(s1PlayBtn) (which===1 ? s1PlayBtn : s2PlayBtn).disabled = true;
+      if(s1ClearBtn) (which===1 ? s1ClearBtn : s2ClearBtn).disabled = true;
 
       try{
         _stream = await navigator.mediaDevices.getUserMedia({
@@ -3333,7 +3361,7 @@
 
         _rec.onstop = async ()=>{
           var finishedBtn = (_recWhich===1 ? s1RecBtn : s2RecBtn);
-          finishedBtn.classList.remove("recording");
+          if(finishedBtn) finishedBtn.classList.remove("recording");
           const tr = (_recWhich===1) ? sample1Track : sample2Track;
           try{
             const blob = new Blob(_chunks, { type: _rec.mimeType || "audio/webm" });
@@ -3346,8 +3374,9 @@
           }catch(err){
             console.error(err);
             tr.buffer = null;
+            tr.fileLabel = "Sample failed";
+            updateTrackLabels();
             setSamplerUI(_recWhich, false);
-            (tr===sample1Track ? s1Status : s2Status).textContent = "Sample failed";
           }finally{
             if(_stream) _stream.getTracks().forEach(t=>t.stop());
             _stream = null;
@@ -3359,8 +3388,11 @@
 
       }catch(err){
         console.error(err);
-        (which===1 ? s1RecBtn : s2RecBtn).classList.remove("recording");
-        (which===1 ? s1Status : s2Status).textContent = "Mic blocked";
+        var recBtn2 = (which===1 ? s1RecBtn : s2RecBtn);
+        if(recBtn2) recBtn2.classList.remove("recording");
+        var tr2 = (which===1) ? sample1Track : sample2Track;
+        tr2.fileLabel = "Mic blocked";
+        updateTrackLabels();
         setSamplerUI(which, false);
       }
     }
@@ -3371,18 +3403,6 @@
       setSamplerUI(which, false);
       scheduleSave();
     }
-
-    bindInput(s1PitchEl, ()=>{ s1PitchVal.textContent = fmtPitch(+s1PitchEl.value||0); scheduleSave(); });
-    bindInput(s2PitchEl, ()=>{ s2PitchVal.textContent = fmtPitch(+s2PitchEl.value||0); scheduleSave(); });
-    s1PitchVal.textContent = fmtPitch(+s1PitchEl.value||0);
-    s2PitchVal.textContent = fmtPitch(+s2PitchEl.value||0);
-
-    s1RecBtn.addEventListener("click", ()=>recordSample2s(1));
-    s2RecBtn.addEventListener("click", ()=>recordSample2s(2));
-    s1PlayBtn.addEventListener("click", async ()=>{ await resumeAudio(); playSampleNow(1, ctx.currentTime); });
-    s2PlayBtn.addEventListener("click", async ()=>{ await resumeAudio(); playSampleNow(2, ctx.currentTime); });
-    s1ClearBtn.addEventListener("click", ()=>clearSample(1));
-    s2ClearBtn.addEventListener("click", ()=>clearSample(2));
 
     async function fetchArrayBuffer(url){
       const r = await fetch(url, { cache:"no-store" });
@@ -4378,8 +4398,12 @@
             dm:mute.drums, bm:mute.bass, lm:mute.lead, pm:mute.piano
           },
           samp:{
-            s1Mix:+s1MixEl.value, s1Fb:+s1FbEl.value, s1Pitch:+s1PitchEl.value,
-            s2Mix:+s2MixEl.value, s2Fb:+s2FbEl.value, s2Pitch:+s2PitchEl.value
+            s1Mix: s1MixEl ? +s1MixEl.value : 0.18, 
+            s1Fb: s1FbEl ? +s1FbEl.value : 0.22, 
+            s1Pitch: s1PitchEl ? +s1PitchEl.value : 0,
+            s2Mix: s2MixEl ? +s2MixEl.value : 0.18, 
+            s2Fb: s2FbEl ? +s2FbEl.value : 0.22, 
+            s2Pitch: s2PitchEl ? +s2PitchEl.value : 0
           }
         }
       };
@@ -4392,10 +4416,6 @@
       tempoVal.textContent = String(tempo());
 
       if(typeof st.masterVol === "number") masterVolEl.value = String(clamp(st.masterVol,0,1));
-      if(typeof st.sidechain === "number"){
-        sidechainAmtEl.value = String(clamp(st.sidechain,0,1));
-        sidechainValEl.textContent = (+sidechainAmtEl.value).toFixed(2);
-      }
 
       if(Array.isArray(st.drum)){
         for(const savedTr of st.drum){
@@ -4482,14 +4502,10 @@
         mute.lead  = !!st.params.mixer.lm;
         mute.piano = !!st.params.mixer.pm;
 
-        mDrumMuteBtn.classList.toggle("on", mute.drums);
-        mBassMuteBtn.classList.toggle("on", mute.bass);
-        mLeadMuteBtn.classList.toggle("on", mute.lead);
-        mPianoMuteBtn.classList.toggle("on", mute.piano);
-        mDrumMuteBtn.textContent = mute.drums ? "Muted" : "Mute";
-        mBassMuteBtn.textContent = mute.bass ? "Muted" : "Mute";
-        mLeadMuteBtn.textContent = mute.lead ? "Muted" : "Mute";
-        mPianoMuteBtn.textContent = mute.piano ? "Muted" : "Mute";
+        mDrumMuteBtn.classList.toggle("active", mute.drums);
+        mBassMuteBtn.classList.toggle("active", mute.bass);
+        mLeadMuteBtn.classList.toggle("active", mute.lead);
+        mPianoMuteBtn.classList.toggle("active", mute.piano);
       }
 
       if(st.params?.piano){
@@ -4498,14 +4514,12 @@
       }
 
       if(st.params?.samp){
-        s1MixEl.value = String(clamp(st.params.samp.s1Mix ?? +s1MixEl.value,0,1));
-        s1FbEl.value  = String(clamp(st.params.samp.s1Fb  ?? +s1FbEl.value,0,0.75));
-        s1PitchEl.value = String(clamp(st.params.samp.s1Pitch ?? +s1PitchEl.value,-12,12));
-        s2MixEl.value = String(clamp(st.params.samp.s2Mix ?? +s2MixEl.value,0,1));
-        s2FbEl.value  = String(clamp(st.params.samp.s2Fb  ?? +s2FbEl.value,0,0.75));
-        s2PitchEl.value = String(clamp(st.params.samp.s2Pitch ?? +s2PitchEl.value,-12,12));
-        s1PitchVal.textContent = fmtPitch(+s1PitchEl.value||0);
-        s2PitchVal.textContent = fmtPitch(+s2PitchEl.value||0);
+        if(s1MixEl) s1MixEl.value = String(clamp(st.params.samp.s1Mix ?? 0.18,0,1));
+        if(s1FbEl) s1FbEl.value  = String(clamp(st.params.samp.s1Fb  ?? 0.22,0,0.75));
+        if(s1PitchEl) s1PitchEl.value = String(clamp(st.params.samp.s1Pitch ?? 0,-12,12));
+        if(s2MixEl) s2MixEl.value = String(clamp(st.params.samp.s2Mix ?? 0.18,0,1));
+        if(s2FbEl) s2FbEl.value  = String(clamp(st.params.samp.s2Fb  ?? 0.22,0,0.75));
+        if(s2PitchEl) s2PitchEl.value = String(clamp(st.params.samp.s2Pitch ?? 0,-12,12));
       }
 
       renderSeqGrid(tbGridEl, bassState, "bass", bassViewOffset);
@@ -4556,6 +4570,41 @@
     hookMixer();
     buildHeader();
     buildGridOnce();
+    
+    // Initialize sample controls after grid is built
+    s1RecBtn = document.getElementById("s1RecBtn");
+    s1PlayBtn = document.getElementById("s1PlayBtn");
+    s1ClearBtn = document.getElementById("s1ClearBtn");
+    s1MixEl = document.getElementById("s1Mix");
+    s1FbEl = document.getElementById("s1Fb");
+    s1PitchEl = document.getElementById("s1Pitch");
+    
+    s2RecBtn = document.getElementById("s2RecBtn");
+    s2PlayBtn = document.getElementById("s2PlayBtn");
+    s2ClearBtn = document.getElementById("s2ClearBtn");
+    s2MixEl = document.getElementById("s2Mix");
+    s2FbEl = document.getElementById("s2Fb");
+    s2PitchEl = document.getElementById("s2Pitch");
+    
+    // Sample control event handlers
+    if(s1RecBtn) s1RecBtn.addEventListener("click", ()=>recordSample2s(1));
+    if(s2RecBtn) s2RecBtn.addEventListener("click", ()=>recordSample2s(2));
+    if(s1PlayBtn) s1PlayBtn.addEventListener("click", async ()=>{ await resumeAudio(); playSampleNow(1, ctx.currentTime); });
+    if(s2PlayBtn) s2PlayBtn.addEventListener("click", async ()=>{ await resumeAudio(); playSampleNow(2, ctx.currentTime); });
+    if(s1ClearBtn) s1ClearBtn.addEventListener("click", ()=>clearSample(1));
+    if(s2ClearBtn) s2ClearBtn.addEventListener("click", ()=>clearSample(2));
+    
+    if(s1MixEl) bindInput(s1MixEl, ()=>scheduleSave());
+    if(s1FbEl) bindInput(s1FbEl, ()=>scheduleSave());
+    if(s1PitchEl) bindInput(s1PitchEl, ()=>scheduleSave());
+    if(s2MixEl) bindInput(s2MixEl, ()=>scheduleSave());
+    if(s2FbEl) bindInput(s2FbEl, ()=>scheduleSave());
+    if(s2PitchEl) bindInput(s2PitchEl, ()=>scheduleSave());
+    
+    // Initialize sample UI states
+    setSamplerUI(1, false);
+    setSamplerUI(2, false);
+    
     renderSeqGrid(tbGridEl, bassState, "bass", bassViewOffset);
     renderSeqGrid(leadGridEl, leadState, "lead", leadViewOffset);
     renderPianoGrid(pianoGridEl, pianoViewOffset);
