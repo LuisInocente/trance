@@ -2495,7 +2495,7 @@
         hubTimer = setTimeout(scheduleAllSlots, 8);
       }
       
-      setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop 1/" + totalLoops);
+      setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop 1/" + totalLoops + " [ll:" + (currentPattern.loopLength || "?") + "]");
       scheduleAllSlots();
     }
     
@@ -2612,7 +2612,7 @@
         hubTimer = setTimeout(scheduleAllSlots, 8);
       }
       
-      setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop 1/" + totalLoops);
+      setStatus(project.name + " (" + (hubPlayIndex + 1) + "/" + hubProjects.length + ") - Loop 1/" + totalLoops + " [ll:" + (currentPattern.loopLength || "?") + "]");
       scheduleAllSlots();
     }
     
