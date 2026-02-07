@@ -242,8 +242,8 @@
       display:flex;
       align-items:center;
       justify-content:center;
-      font-size:10px;
-      font-weight:900;
+      font-size:9px;
+      font-weight:700;
       color:transparent;
       transition: all 0.1s;
     }
@@ -747,7 +747,9 @@
         const octave = melodyGridState[ni][stepIdx];
         if(octave !== null){
           cell.classList.add("on", sound);
-          cell.textContent = octave > 0 ? "+" + octave : octave;
+          // Show note name + octave (e.g., "C-1", "G0", "A+1")
+          const octStr = octave > 0 ? "+" + octave : octave;
+          cell.textContent = note + octStr;
         }
         
         cell.onclick = async () => {
@@ -1088,7 +1090,7 @@
   }
   
   function playPiano(freq, time, dur){
-    // Piano-like sound with multiple harmonics
+    // Piano-like sound with multiple harmonics - staccato
     const osc1 = ctx.createOscillator();
     const osc2 = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -1104,11 +1106,10 @@
     const osc2Gain = ctx.createGain();
     osc2Gain.gain.setValueAtTime(0.1, time);
     
-    // Amp envelope with attack
+    // Staccato envelope - quick attack, fast decay
     gain.gain.setValueAtTime(0, time);
     gain.gain.linearRampToValueAtTime(0.5, time + 0.003);
-    gain.gain.setTargetAtTime(0.3, time + 0.05, 0.1);
-    gain.gain.setTargetAtTime(0, time + dur * 0.5, 0.15);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
     
     osc1.connect(osc1Gain);
     osc2.connect(osc2Gain);
@@ -1118,8 +1119,8 @@
     
     osc1.start(time);
     osc2.start(time);
-    osc1.stop(time + dur + 0.3);
-    osc2.stop(time + dur + 0.3);
+    osc1.stop(time + 0.2);
+    osc2.stop(time + 0.2);
   }
   
   // ===== PLAYBACK =====
@@ -1203,8 +1204,10 @@
         if(track.pattern[drumStep] && !track.muted && track.buffer && !drumMuted){
           playBuffer(track.buffer, nextStepTime, drumGain);
           
-          // Sidechain trigger
-          triggerSidechain(nextStepTime);
+          // Sidechain trigger - only on kick
+          if(track.key === "kick"){
+            triggerSidechain(nextStepTime);
+          }
         }
       });
       
@@ -1284,7 +1287,7 @@
   
   function triggerSidechain(time){
     const duckAmount = 0.4;
-    const attack = 0.005;
+    const attack = 0.01;  // Slightly longer attack to avoid click
     const release = 0.2;
     
     [bassGain, leadGain, padGain, pianoGain].forEach(g => {
@@ -1415,7 +1418,10 @@
           const track = drumTracks.find(tr => tr.key === t.key);
           if(t.pattern[drumStep] && !t.muted && track?.buffer && !drumMuted){
             playBuffer(track.buffer, nextStepTime, drumGain);
-            triggerSidechain(nextStepTime);
+            // Sidechain only on kick
+            if(t.key === "kick"){
+              triggerSidechain(nextStepTime);
+            }
           }
         });
         
