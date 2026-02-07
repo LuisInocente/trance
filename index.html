@@ -893,6 +893,7 @@
   
   // ===== SYNTH SOUNDS =====
   let bassGain, leadGain, padGain, pianoGain;
+  let bassTargetVol = 0.8, leadTargetVol = 0.8, padTargetVol = 0.8, pianoTargetVol = 0.8;
   
   function createSynthGains(){
     if(!ctx) return;
@@ -911,10 +912,15 @@
     const padVol = lanesEl.querySelector('[data-sound="pad"] .laneVol');
     const pianoVol = lanesEl.querySelector('[data-sound="piano"] .laneVol');
     
-    if(bassGain) bassGain.gain.value = lanes.bass.muted ? 0 : (bassVol ? +bassVol.value : 0.8);
-    if(leadGain) leadGain.gain.value = lanes.lead.muted ? 0 : (leadVol ? +leadVol.value : 0.8);
-    if(padGain) padGain.gain.value = lanes.pad.muted ? 0 : (padVol ? +padVol.value : 0.8);
-    if(pianoGain) pianoGain.gain.value = lanes.piano.muted ? 0 : (pianoVol ? +pianoVol.value : 0.8);
+    bassTargetVol = lanes.bass.muted ? 0 : (bassVol ? +bassVol.value : 0.8);
+    leadTargetVol = lanes.lead.muted ? 0 : (leadVol ? +leadVol.value : 0.8);
+    padTargetVol = lanes.pad.muted ? 0 : (padVol ? +padVol.value : 0.8);
+    pianoTargetVol = lanes.piano.muted ? 0 : (pianoVol ? +pianoVol.value : 0.8);
+    
+    if(bassGain) bassGain.gain.value = bassTargetVol;
+    if(leadGain) leadGain.gain.value = leadTargetVol;
+    if(padGain) padGain.gain.value = padTargetVol;
+    if(pianoGain) pianoGain.gain.value = pianoTargetVol;
   }
   
   // Hook volume sliders
@@ -1286,17 +1292,34 @@
   }
   
   function triggerSidechain(time){
-    const duckAmount = 0.4;
-    const attack = 0.01;  // Slightly longer attack to avoid click
+    const duckRatio = 0.5;  // Duck to 50% of target volume
+    const attack = 0.01;
     const release = 0.2;
     
-    [bassGain, leadGain, padGain, pianoGain].forEach(g => {
-      if(!g) return;
-      g.gain.cancelScheduledValues(time);
-      g.gain.setValueAtTime(g.gain.value, time);
-      g.gain.linearRampToValueAtTime(duckAmount, time + attack);
-      g.gain.linearRampToValueAtTime(0.8, time + release);
-    });
+    if(bassGain && bassTargetVol > 0){
+      bassGain.gain.cancelScheduledValues(time);
+      bassGain.gain.setValueAtTime(bassGain.gain.value, time);
+      bassGain.gain.linearRampToValueAtTime(bassTargetVol * duckRatio, time + attack);
+      bassGain.gain.linearRampToValueAtTime(bassTargetVol, time + release);
+    }
+    if(leadGain && leadTargetVol > 0){
+      leadGain.gain.cancelScheduledValues(time);
+      leadGain.gain.setValueAtTime(leadGain.gain.value, time);
+      leadGain.gain.linearRampToValueAtTime(leadTargetVol * duckRatio, time + attack);
+      leadGain.gain.linearRampToValueAtTime(leadTargetVol, time + release);
+    }
+    if(padGain && padTargetVol > 0){
+      padGain.gain.cancelScheduledValues(time);
+      padGain.gain.setValueAtTime(padGain.gain.value, time);
+      padGain.gain.linearRampToValueAtTime(padTargetVol * duckRatio, time + attack);
+      padGain.gain.linearRampToValueAtTime(padTargetVol, time + release);
+    }
+    if(pianoGain && pianoTargetVol > 0){
+      pianoGain.gain.cancelScheduledValues(time);
+      pianoGain.gain.setValueAtTime(pianoGain.gain.value, time);
+      pianoGain.gain.linearRampToValueAtTime(pianoTargetVol * duckRatio, time + attack);
+      pianoGain.gain.linearRampToValueAtTime(pianoTargetVol, time + release);
+    }
   }
   
   function updatePlayheads(drumStep, melodyStep){
